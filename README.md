@@ -36,6 +36,19 @@ New-Item -ItemType Junction -Path "C:\Program Files (x86)\World of Warcraft\_for
 - Death records last one session; learned estimates persist in `RespawnTimerDB`.
 - Inside instances unit data is secret, so the add-on shows nothing there.
 
+## Reporting bugs and ideas
+
+Found a bug, a wrong respawn time, or have a feature idea? [Open an issue](https://github.com/gn4rwhals/WoWRespawntimer/issues/new). Pull requests are not accepted, so issues are the way to suggest changes.
+
+For bugs, please include:
+
+- Add-on version (from the add-on list or `## Version` in `RespawnTimer.toc`)
+- What you did, what you expected, and what happened instead
+- Zone and mob name, if it is about a specific creature
+- Any Lua error text (turn on error popups with `/console scriptErrors 1`)
+- Output of `/rst status` while targeting the mob, if relevant
+- Optional: your debug log. Turn it on with `/rst debug`, reproduce the problem, `/reload`, then attach the `log` section from `WTF\Account\<ACCOUNT>\SavedVariables\RespawnTimer.lua`
+
 ## Development
 
 - `RespawnTimer/Util.lua`, `Estimator.lua`: pure logic, unit tested.
