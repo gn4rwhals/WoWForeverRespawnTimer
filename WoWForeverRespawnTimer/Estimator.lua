@@ -12,7 +12,7 @@ local Estimator = {}
 Estimator.__index = Estimator
 ns.Estimator = Estimator
 
-Estimator.MIN_SAMPLE = 45      -- seconds; shorter gaps are a different mob
+Estimator.MIN_SAMPLE = 120     -- seconds; shorter gaps are a different mob (false 47-89 s matches seen in dense camps)
 Estimator.MAX_SAMPLE = 2 * 3600 -- seconds; longer gaps are noise, deaths expire
 -- Yards between the player's position at the death and at the sighting.
 -- Player, not mob, positions: nameplates show mobs ~40 yd away, so allow slack.
