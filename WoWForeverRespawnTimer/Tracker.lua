@@ -38,9 +38,8 @@ local function observe(unit)
 	if not guid then return end
 	local est, now = ns.estimator, GetServerTime()
 	if not petChecked[npcID] and C_TooltipInfo and C_TooltipInfo.GetUnit then
-		petChecked[npcID] = true
 		local ok, data = pcall(C_TooltipInfo.GetUnit, unit)
-		if ok then ns.CheckPet(unit, npcID, data) end
+		if ok and ns.CheckPet(unit, npcID, data) then petChecked[npcID] = true end
 	end
 	if est:IsPet(npcID) then return end
 	local prev = lastDead[guid]
@@ -111,6 +110,7 @@ ns.commands.clear = function()
 	local npcID, name = targetNpc()
 	if not npcID then return end
 	ns.estimator:Clear(npcID)
+	petChecked[npcID] = nil
 	ns.Print(name .. " respawn data cleared")
 end
 

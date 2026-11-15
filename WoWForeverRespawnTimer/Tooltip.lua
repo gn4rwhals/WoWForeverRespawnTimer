@@ -56,7 +56,7 @@ end
 function ns.PetOwner(lines, opts)
 	if opts.ownerType ~= nil then
 		for _, l in ipairs(lines) do
-			if l.type == opts.ownerType then return l.text, "type" end
+			if l.type == opts.ownerType and l.n <= 3 then return l.text, "type" end
 		end
 	end
 	local skip = {}
@@ -64,7 +64,7 @@ function ns.PetOwner(lines, opts)
 	for _, format in ipairs(opts.formats) do
 		local pattern = formatPattern(format)
 		for _, l in ipairs(pattern and lines or {}) do
-			if l.n ~= 1 and not skip[l.type] then
+			if l.n == 2 and not skip[l.type] then
 				local owner = l.text:match(pattern)
 				if owner then return owner, "text" end
 			end
@@ -93,7 +93,8 @@ local PET_GLOBALS = { "UNITNAME_TITLE_PET", "UNITNAME_TITLE_GUARDIAN", "UNITNAME
 	"UNITNAME_TITLE_CREATION", "UNITNAME_TITLE_COMPANION", "UNITNAME_TITLE_CHARM" }
 local QUEST_TYPES = { "QuestTitle", "QuestObjective", "QuestPlayer" }
 
--- Marks npcID as a pet when its tooltip data says it has an owner.
+-- Marks npcID as a pet when its tooltip data says it has an owner. Returns
+-- true if at least one line was readable (so the check was meaningful).
 function ns.CheckPet(unit, npcID, data)
 	local T = Enum.TooltipDataLineType
 	local opts = { ownerType = T and T.UnitOwner, skipTypes = {}, formats = {} }
@@ -103,10 +104,12 @@ function ns.CheckPet(unit, npcID, data)
 	for _, name in ipairs(PET_GLOBALS) do
 		if type(_G[name]) == "string" then opts.formats[#opts.formats + 1] = _G[name] end
 	end
-	local owner, how = ns.PetOwner(ns.PetLines(data), opts)
+	local lines = ns.PetLines(data)
+	local owner, how = ns.PetOwner(lines, opts)
 	if owner and ns.estimator:MarkPet(npcID) then
 		ns.Debug("pet", npcID, ns.Readable(UnitName(unit)) or "?", "(owner " .. owner .. ", via " .. how .. ")")
 	end
+	return #lines > 0
 end
 
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)

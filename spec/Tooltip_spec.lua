@@ -49,8 +49,9 @@ describe("TooltipLine", function()
 end)
 
 local FMT = { "%s's Pet", "%s's Guardian" }
+local QUEST_TITLE = 17 -- stub for Enum.TooltipDataLineType.QuestTitle
 local function opts(extra)
-	local o = { formats = FMT, skipTypes = { 7 } }
+	local o = { formats = FMT, skipTypes = { QUEST_TITLE } }
 	for k, v in pairs(extra or {}) do o[k] = v end
 	return o
 end
@@ -86,7 +87,17 @@ describe("PetOwner", function()
 	it("skips the name line and quest lines", function()
 		local ns = setup()
 		assert.is_nil(ns.PetOwner({ { text = "The Captain's Pet", n = 1 } }, opts()))
-		assert.is_nil(ns.PetOwner({ { text = "The Captain's Pet", type = 7, n = 3 } }, opts()))
+		assert.is_nil(ns.PetOwner({ { text = "The Captain's Pet", type = QUEST_TITLE, n = 2 } }, opts()))
+	end)
+
+	it("only matches text on line 2, and the owner type on lines up to 3", function()
+		local ns = setup()
+		local lines = { { text = "Bandit", n = 1 }, { text = "Level 30", n = 2 },
+			{ text = "The Captain's Pet", type = 0, n = 3 } }
+		assert.is_nil(ns.PetOwner(lines, opts()))
+		assert.are.equal("Skullsplitter Hunter", ns.PetOwner({ { text = "Skullsplitter Hunter's Pet", n = 2 } }, opts()))
+		assert.is_nil(ns.PetOwner({ { text = "Bob", type = 16, n = 4 } }, opts({ ownerType = 16 })))
+		assert.are.equal("Bob", ns.PetOwner({ { text = "Bob", type = 16, n = 3 } }, opts({ ownerType = 16 })))
 	end)
 
 	it("ignores formats without %s and unescapes %%", function()
