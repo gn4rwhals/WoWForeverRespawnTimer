@@ -16,6 +16,7 @@ end
 -- position, used to pick the nearest spawn area's estimate.
 function ns.TooltipLine(guid, npcID, dead, now, pos)
 	local est = ns.estimator
+	if est:IsPet(npcID) then return nil end
 	if not dead then
 		local e = est:Estimate(npcID, pos)
 		return e and ("Typical respawn " .. estimateText(e)) or nil
@@ -31,26 +32,81 @@ function ns.TooltipLine(guid, npcID, dead, now, pos)
 	return e and ("Respawn " .. estimateText(e)) or "Respawn: no data yet"
 end
 
--- Returns the owner's name if any line matches the pet title format
--- (UNITNAME_TITLE_PET, e.g. "%s's Pet"), else nil. Non-string lines are skipped.
-function ns.PetOwner(lines, format)
-	if type(format) ~= "string" then return nil end
-	local pattern = "^" .. format:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0"):gsub("%%%%s", "(.+)") .. "$"
-	for _, text in ipairs(lines) do
-		if type(text) == "string" then
-			local owner = text:match(pattern)
-			if owner then return owner end
+-- Turns a pet title format ("%s's Pet") into a Lua pattern, or nil when it
+-- has no %s. "%%" is a literal percent sign.
+local function formatPattern(format)
+	local out, hasName, i = {}, false, 1
+	while i <= #format do
+		local c, n = format:sub(i, i), format:sub(i + 1, i + 1)
+		if c == "%" and n == "s" then
+			out[#out + 1], hasName, i = "(.+)", true, i + 2
+		elseif c == "%" and n == "%" then
+			out[#out + 1], i = "%%", i + 2
+		else
+			out[#out + 1], i = c:find("%p") and ("%" .. c) or c, i + 1
+		end
+	end
+	return hasName and ("^" .. table.concat(out) .. "$") or nil
+end
+
+-- lines: { { text, type, n }, ... } (readable, n = position in the tooltip).
+-- opts: ownerType (line type of the owner line), skipTypes (line types to
+-- ignore), formats (pet title formats). Returns the owner's name and how it
+-- was found ("type" or "text"), or nil.
+function ns.PetOwner(lines, opts)
+	if opts.ownerType ~= nil then
+		for _, l in ipairs(lines) do
+			if l.type == opts.ownerType then return l.text, "type" end
+		end
+	end
+	local skip = {}
+	for _, t in ipairs(opts.skipTypes) do skip[t] = true end
+	for _, format in ipairs(opts.formats) do
+		local pattern = formatPattern(format)
+		for _, l in ipairs(pattern and lines or {}) do
+			if l.n ~= 1 and not skip[l.type] then
+				local owner = l.text:match(pattern)
+				if owner then return owner, "text" end
+			end
 		end
 	end
 	return nil
 end
 
-local function tooltipTexts(data)
-	local texts = {}
-	for i, line in ipairs(data and data.lines or {}) do
-		texts[i] = ns.Readable(line.leftText)
+-- Tooltip data -> readable { text, type, n } entries, dropping secret or odd lines.
+function ns.PetLines(data)
+	local out = {}
+	local lines = type(data) == "table" and ns.Readable(data.lines)
+	if type(lines) ~= "table" then return out end
+	for i, line in ipairs(lines) do
+		if type(line) == "table" and not ns.IsSecret(line) then
+			local text = ns.Readable(line.leftText)
+			if type(text) == "string" then
+				out[#out + 1] = { text = text, type = ns.Readable(line.type), n = i }
+			end
+		end
 	end
-	return texts
+	return out
+end
+
+local PET_GLOBALS = { "UNITNAME_TITLE_PET", "UNITNAME_TITLE_GUARDIAN", "UNITNAME_TITLE_MINION",
+	"UNITNAME_TITLE_CREATION", "UNITNAME_TITLE_COMPANION", "UNITNAME_TITLE_CHARM" }
+local QUEST_TYPES = { "QuestTitle", "QuestObjective", "QuestPlayer" }
+
+-- Marks npcID as a pet when its tooltip data says it has an owner.
+function ns.CheckPet(unit, npcID, data)
+	local T = Enum.TooltipDataLineType
+	local opts = { ownerType = T and T.UnitOwner, skipTypes = {}, formats = {} }
+	for _, name in ipairs(QUEST_TYPES) do
+		if T and T[name] ~= nil then opts.skipTypes[#opts.skipTypes + 1] = T[name] end
+	end
+	for _, name in ipairs(PET_GLOBALS) do
+		if type(_G[name]) == "string" then opts.formats[#opts.formats + 1] = _G[name] end
+	end
+	local owner, how = ns.PetOwner(ns.PetLines(data), opts)
+	if owner and ns.estimator:MarkPet(npcID) then
+		ns.Debug("pet", npcID, ns.Readable(UnitName(unit)) or "?", "(owner " .. owner .. ", via " .. how .. ")")
+	end
 end
 
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)
@@ -59,10 +115,7 @@ TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tool
 	if not unit then return end
 	local guid, npcID, dead = ns.Tracker.Read(unit)
 	if not guid then return end
-	local owner = ns.PetOwner(tooltipTexts(data), UNITNAME_TITLE_PET)
-	if owner and ns.estimator:MarkPet(npcID) then
-		ns.Debug("pet", npcID, ns.Readable(UnitName(unit)) or "?", "(owner " .. owner .. ")")
-	end
+	ns.CheckPet(unit, npcID, data)
 	local line = ns.TooltipLine(guid, npcID, dead, GetServerTime(), ns.Tracker.PlayerPos())
 	if line then tooltip:AddLine(line, COLOR[1], COLOR[2], COLOR[3]) end
 end)

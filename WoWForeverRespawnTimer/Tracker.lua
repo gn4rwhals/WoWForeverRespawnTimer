@@ -7,6 +7,7 @@ local Tracker = {}
 ns.Tracker = Tracker
 
 local lastDead, lastDeadCount = {}, 0 -- guid -> last readable dead state
+local petChecked = {} -- npcID -> true once checked for an owner this session
 
 -- The player's position in world yards, or nil if the game hides it
 -- (instances). Uses the player because the add-on cannot read mob positions.
@@ -36,6 +37,11 @@ local function observe(unit)
 	local guid, npcID, dead = Tracker.Read(unit)
 	if not guid then return end
 	local est, now = ns.estimator, GetServerTime()
+	if not petChecked[npcID] and C_TooltipInfo and C_TooltipInfo.GetUnit then
+		petChecked[npcID] = true
+		local ok, data = pcall(C_TooltipInfo.GetUnit, unit)
+		if ok then ns.CheckPet(unit, npcID, data) end
+	end
 	if est:IsPet(npcID) then return end
 	local prev = lastDead[guid]
 	if prev == nil then
@@ -96,6 +102,7 @@ ns.commands.set = function(rest)
 	if not seconds or seconds <= 0 then return ns.Print("usage: /rst set <seconds>") end
 	local npcID, name = targetNpc()
 	if not npcID then return end
+	if ns.estimator:IsPet(npcID) then return ns.Print(name .. " is a pet, ignored (/rst clear to undo)") end
 	ns.estimator:SetOverride(npcID, seconds)
 	ns.Print(name .. " respawn set to " .. Util.FormatDuration(seconds))
 end

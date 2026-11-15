@@ -25,6 +25,7 @@ Estimator.MAX_AREAS = 50       -- per npcID, oldest dropped first
 --   samples = {...},  every sample for this npcID (fallback estimate)
 --   areas = { { c, x, y, samples = {...} }, ... },  spawn spots, by death position
 --   override = seconds,  manual value from /rst set
+--   pet = true,  an NPC pet: the entry holds nothing else (see MarkPet)
 -- }
 function Estimator.New(store)
 	return setmetatable({
@@ -154,6 +155,7 @@ end
 
 -- A pet (e.g. a hunter mob's panther) is not a spawn: drop what we learned
 -- and pending deaths. Returns true the first time. /rst clear undoes it.
+-- Known limit: an npcID that is both a pet and a wild spawn loses tracking.
 function Estimator:MarkPet(npcID)
 	if self:IsPet(npcID) then return false end
 	self.store[npcID] = { pet = true }
