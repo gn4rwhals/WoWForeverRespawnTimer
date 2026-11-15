@@ -83,6 +83,14 @@ end
 function Estimator:RecordDeath(guid, npcID, t, pos)
 	self.seen[guid] = true
 	if self.deaths[guid] then return end
+	-- A bounded death whose respawn has now died is spent: its next respawn
+	-- belongs to this new death.
+	for _, d in pairs(self.deaths) do
+		if d.bounded and not d.matched and d.npcID == npcID then
+			local dist = Util.Distance(d.pos, pos)
+			if dist and dist <= self.MATCH_RADIUS then d.matched = true end
+		end
+	end
 	self.deaths[guid] = { npcID = npcID, t = t, pos = pos, matched = false, bounded = false }
 	-- Forget deaths too old to ever produce a sample.
 	for g, d in pairs(self.deaths) do
@@ -144,7 +152,7 @@ end
 -- Returns { seconds, n, scope } or nil when nothing is known. scope is
 -- "manual" (/rst set), "area" (samples from the spawn spot nearest pos) or
 -- "type" (all samples for this npcID, when no area near pos has any) or
--- "bound" (no samples: median upper bound from in-combat sightings, 2+ needed).
+-- "bound" (no samples: upper-median bound from in-combat sightings, 2+ needed).
 function Estimator:Estimate(npcID, pos)
 	local e = self.store[npcID]
 	if not e then return nil end
@@ -159,7 +167,10 @@ function Estimator:Estimate(npcID, pos)
 		-- Deliberate: samples always win. Bounds are weak (a false match only
 		-- makes them too small), so they need two kills and use the median.
 		if bounds and #bounds >= 2 then
-			return { seconds = Util.Median(bounds), n = #bounds, scope = "bound" }
+			-- Even count: upper middle, so a false low bound cannot pull it down.
+			local sorted = { unpack(bounds) }
+			table.sort(sorted)
+			return { seconds = sorted[math.floor(#sorted / 2) + 1], n = #bounds, scope = "bound" }
 		end
 		return nil
 	end
