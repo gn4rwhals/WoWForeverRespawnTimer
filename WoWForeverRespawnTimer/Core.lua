@@ -15,6 +15,15 @@ function ns.Readable(v)
 	return v
 end
 
+-- True inside dungeons, raids, battlegrounds and other instances: the add-on
+-- stops reading units there (unit data is mostly secret and errors were seen).
+-- An unreadable answer counts as inside.
+function ns.Paused()
+	local ok, inInstance = pcall(IsInInstance)
+	if not ok or ns.IsSecret(inInstance) then return true end
+	return inInstance and true or false
+end
+
 function ns.Print(...)
 	print("|cff33ff99RespawnTimer|r:", ...)
 end

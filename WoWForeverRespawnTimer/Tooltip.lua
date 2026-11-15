@@ -151,7 +151,7 @@ function ns.CheckClass(unit, npcID)
 end
 
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)
-	if tooltip ~= GameTooltip or not ns.estimator then return end
+	if tooltip ~= GameTooltip or not ns.estimator or ns.Paused() then return end
 	local _, unit = tooltip:GetUnit()
 	if not unit then return end
 	local guid, npcID, dead = ns.Tracker.Read(unit)

@@ -66,6 +66,7 @@ function Tracker.Read(unit)
 end
 
 local function observe(unit)
+	if ns.Paused() then return end
 	local guid, npcID, dead = Tracker.Read(unit)
 	if not guid then return end
 	local est, now = ns.estimator, GetServerTime()
