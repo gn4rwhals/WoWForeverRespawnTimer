@@ -82,7 +82,14 @@ table.insert(ns.onLoad, function()
 		"NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED" }) do
 		frame:RegisterEvent(e)
 	end
-	C_Timer.NewTicker(5, function() ns.estimator:Tick(GetServerTime(), playerPos()) end)
+	local failed = false
+	C_Timer.NewTicker(5, function()
+		local ok, err = pcall(function() ns.estimator:Tick(playerPos(), 5) end)
+		if not ok and not failed then
+			failed = true
+			ns.Log("TICK ERROR " .. tostring(err))
+		end
+	end)
 end)
 
 -- Slash commands ------------------------------------------------------------
