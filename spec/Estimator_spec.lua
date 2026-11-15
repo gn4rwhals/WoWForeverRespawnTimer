@@ -327,6 +327,22 @@ describe("Estimator", function()
 			assert.are.same({ 900 }, store[299].samples)
 		end)
 
+		it("closes a bounded death when its respawn dies far away", function()
+			local e = new()
+			e:RecordDeath("a", 299, 0, HERE)
+			e:RecordBound("b", 299, 300, HERE)
+			e:RecordDeath("b", 299, 320, FAR) -- kited away and killed there
+			assert.is_nil(e:RecordAlive("c", 299, 620, HERE)) -- not a 620 s double cycle
+		end)
+
+		it("records no bound when the player was away too long", function()
+			local e, store = new()
+			e:RecordDeath("a", 299, 0, HERE)
+			for _ = 1, 600 do e:Tick(FAR, 5) end
+			assert.is_nil(e:RecordBound("b", 299, 3000, HERE))
+			assert.is_nil(store[299])
+		end)
+
 		it("lets samples win over bounds", function()
 			local e = new()
 			twoBounds(e, 300, 400)
@@ -381,5 +397,16 @@ describe("Estimator pets", function()
 		assert.is_nil(e:Estimate(756, HERE))
 		e:Clear(756)
 		assert.is_false(e:IsPet(756))
+		assert.is_false(e:MarkPet(756)) -- cleared pets are not flagged again
+		assert.is_false(e:IsPet(756))
+	end)
+
+	it("records nothing for a pet even if called directly", function()
+		local e, store = new()
+		e:MarkPet(756)
+		e:RecordDeath("a", 756, 0, HERE)
+		assert.is_nil(e:RecordAlive("b", 756, 300, HERE))
+		assert.is_nil(e:RecordBound("c", 756, 300, HERE))
+		assert.are.same({ pet = true }, store[756])
 	end)
 end)

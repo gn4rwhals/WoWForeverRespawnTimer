@@ -58,8 +58,8 @@ describe("TooltipLine", function()
 		assert.are.equal("Typical respawn at most 17m 00s (upper bound, 2 kills)",
 			ns.TooltipLine("d", 299, false, 3100, HERE))
 		est:RecordDeath("e", 299, 4000, HERE)
-		assert.are.equal("Died 1m 00s ago, respawns within at most 17m 00s", ns.TooltipLine("e", 299, true, 4060))
-		assert.are.equal("Died 30m 00s ago, respawns within at most 17m 00s", ns.TooltipLine("e", 299, true, 5800))
+		assert.are.equal("Died 1m 00s ago, respawns within at most 16m 00s", ns.TooltipLine("e", 299, true, 4060))
+		assert.are.equal("Died 30m 00s ago, respawn due (upper bound passed)", ns.TooltipLine("e", 299, true, 5800))
 	end)
 end)
 

@@ -26,7 +26,9 @@ function ns.TooltipLine(guid, npcID, dead, now, pos)
 	if corpse then
 		local died = "Died " .. fmt(corpse.diedAgo) .. " ago"
 		if corpse.estimate and corpse.estimate.scope == "bound" then
-			return died .. ", respawns within at most " .. fmt(corpse.estimate.seconds)
+			local left = corpse.estimate.seconds - corpse.diedAgo
+			if left <= 0 then return died .. ", respawn due (upper bound passed)" end
+			return died .. ", respawns within at most " .. fmt(left)
 		end
 		if not corpse.remaining then return died .. ", respawn: no data yet" end
 		if corpse.remaining <= 0 then return died .. ", respawn due" end

@@ -87,13 +87,14 @@ end
 
 function Estimator:RecordDeath(guid, npcID, t, pos)
 	self.seen[guid] = true
-	if self.deaths[guid] then return end
+	if self.deaths[guid] or self:IsPet(npcID) then return end
 	-- A bounded death whose respawn has now died is spent: its next respawn
-	-- belongs to this new death.
+	-- belongs to this new death. Matched by the respawn's GUID (it may die far
+	-- away), else by distance.
 	for _, d in pairs(self.deaths) do
 		if d.bounded and not d.matched and d.npcID == npcID then
 			local dist = Util.Distance(d.pos, pos)
-			if dist and dist <= self.MATCH_RADIUS then d.matched = true end
+			if d.boundBy == guid or (dist and dist <= self.MATCH_RADIUS) then d.matched = true end
 		end
 	end
 	self.deaths[guid] = { npcID = npcID, t = t, pos = pos, matched = false, bounded = false }
@@ -119,6 +120,11 @@ local function findDeath(self, npcID, t, pos, skipBounded)
 	return best
 end
 
+-- True when the player was away from death d for too much of a gap.
+local function tooAway(self, d, gap)
+	return (d.awaySecs or 0) > math.min(self.MAX_AWAY, 0.2 * gap)
+end
+
 function Estimator:IsSeen(guid)
 	return self.seen[guid] == true
 end
@@ -130,9 +136,12 @@ end
 function Estimator:RecordBound(guid, npcID, t, pos)
 	if self.seen[guid] then return nil end
 	self.seen[guid] = true
+	if self:IsPet(npcID) then return nil end
 	local best = findDeath(self, npcID, t, pos, true)
 	if not best then return nil end
-	best.bounded = true
+	best.bounded, best.boundBy = true, guid
+	-- Time away inflates bounds just like samples.
+	if tooAway(self, best, t - best.t) then return nil end
 	local e = entry(self, npcID)
 	e.bounds = e.bounds or {}
 	push(e.bounds, t - best.t, self.MAX_SAMPLES)
@@ -157,11 +166,12 @@ end
 function Estimator:RecordAlive(guid, npcID, t, pos)
 	if self.seen[guid] then return nil end
 	self.seen[guid] = true
+	if self:IsPet(npcID) then return nil end
 	local best = findDeath(self, npcID, t, pos)
 	if not best then return nil end
 	best.matched = true
 	local sample = t - best.t
-	if (best.awaySecs or 0) > math.min(self.MAX_AWAY, 0.2 * sample) then return nil, "away", sample end
+	if tooAway(self, best, sample) then return nil, "away", sample end
 	local e = entry(self, npcID)
 	push(e.samples, sample, self.MAX_SAMPLES)
 	local areaIndex, areaCount = addToArea(e, best.pos, sample)
@@ -189,8 +199,8 @@ function Estimator:Estimate(npcID, pos)
 	if not median then median, n = Util.Median(e.samples), #e.samples end
 	if not median then
 		local bounds = e.bounds
-		-- Deliberate: samples always win. Bounds are weak (a false match only
-		-- makes them too small), so they need two kills and use the median.
+		-- Deliberate: samples always win. Bounds are weak (a false match makes
+		-- them too small), so they need two kills and use the median.
 		if bounds and #bounds >= 2 then
 			-- Even count: upper middle, so a false low bound cannot pull it down.
 			local sorted = { unpack(bounds) }
@@ -220,7 +230,8 @@ end
 -- and pending deaths. Returns true the first time. /rst clear undoes it.
 -- Known limit: an npcID that is both a pet and a wild spawn loses tracking.
 function Estimator:MarkPet(npcID)
-	if self:IsPet(npcID) then return false end
+	local e = self.store[npcID]
+	if self:IsPet(npcID) or (e and e.notPet) then return false end
 	self.store[npcID] = { pet = true }
 	for g, d in pairs(self.deaths) do
 		if d.npcID == npcID then self.deaths[g] = nil end
@@ -233,6 +244,7 @@ function Estimator:IsPet(npcID)
 	return e ~= nil and e.pet == true
 end
 
+-- Clearing a pet also remembers it is not one, so it is not flagged again.
 function Estimator:Clear(npcID)
-	self.store[npcID] = nil
+	self.store[npcID] = self:IsPet(npcID) and { samples = {}, notPet = true } or nil
 end
