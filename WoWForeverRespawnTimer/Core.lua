@@ -15,6 +15,21 @@ function ns.Readable(v)
 	return v
 end
 
+-- True when calling fn fails, returns a secret, or returns a true value.
+local function yes(fn)
+	local ok, v = pcall(fn)
+	if not ok or ns.IsSecret(v) then return true end
+	return v and true or false
+end
+
+-- True inside dungeons, raids, battlegrounds and other instances (unit data is
+-- mostly secret and errors were seen) and in rested areas: major cities, where
+-- guards and city NPCs are not worth timing, and inns. The add-on stops
+-- reading units there. An unreadable answer counts as paused.
+function ns.Paused()
+	return yes(IsInInstance) or yes(IsResting)
+end
+
 function ns.Print(...)
 	print("|cff33ff99RespawnTimer|r:", ...)
 end
