@@ -192,12 +192,12 @@ function Estimator:RecordAlive(guid, npcID, t, pos)
 	return sample, areaIndex, areaCount
 end
 
--- The zone average for a mob with no data of its own, or nil. Never offered
--- for an npcID known to be non-normal or quest-flagged.
+-- The zone average for a mob with no data of its own, or nil. Only offered
+-- for an npcID known to be normal and not quest-flagged.
 local function zoneEstimate(self, e, pos)
 	local zone = pos and pos.zone and self.zones[pos.zone]
 	if not zone or #zone.samples < self.MIN_ZONE_SAMPLES then return nil end
-	if (e.class and e.class ~= "normal") or e.quest then return nil end
+	if e.class ~= "normal" or e.quest then return nil end
 	local median, n = Util.RobustMedian(zone.samples, Util.Median(zone.samples))
 	return median and { seconds = median, n = n, scope = "zone" } or nil
 end
@@ -269,10 +269,25 @@ function Estimator:IsPet(npcID)
 	return e ~= nil and e.pet == true
 end
 
+-- The stored entry for npcID, or nil. Read only.
+function Estimator:Entry(npcID)
+	return self.store[npcID]
+end
+
+-- The entry for a flag, created without areas (entry() adds them when needed).
+local function flagEntry(self, npcID)
+	local e = self.store[npcID]
+	if not e then
+		e = { samples = {} }
+		self.store[npcID] = e
+	end
+	return e
+end
+
 -- Stores the creature class once. Returns true when newly set; pets get no entry.
 function Estimator:SetClass(npcID, class)
 	if self:IsPet(npcID) then return false end
-	local e = entry(self, npcID)
+	local e = flagEntry(self, npcID)
 	if e.class then return false end
 	e.class = class
 	return true
@@ -281,14 +296,20 @@ end
 -- Flags npcID as a quest mob for good. Returns true the first time.
 function Estimator:MarkQuest(npcID)
 	if self:IsPet(npcID) then return false end
-	local e = entry(self, npcID)
+	local e = flagEntry(self, npcID)
 	if e.quest then return false end
 	e.quest = true
 	return true
 end
 
--- Clearing a pet also remembers it is not one, so it is not flagged again.
+-- Clear drops samples, areas, bounds and the override. It keeps the class and
+-- quest flag, and remembers a cleared pet is not one, so it is not flagged again.
 function Estimator:Clear(npcID)
 	local e = self.store[npcID]
-	self.store[npcID] = (e and (e.pet or e.notPet)) and { samples = {}, notPet = true } or nil
+	local notPet = e and (e.pet or e.notPet) or nil
+	if e and (notPet or e.class or e.quest) then
+		self.store[npcID] = { samples = {}, notPet = notPet, class = e.class, quest = e.quest }
+	else
+		self.store[npcID] = nil
+	end
 end

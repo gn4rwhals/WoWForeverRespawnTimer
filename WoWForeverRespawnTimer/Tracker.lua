@@ -9,6 +9,31 @@ ns.Tracker = Tracker
 local lastDead, lastDeadCount = {}, 0 -- guid -> last readable dead state
 local petChecked = {} -- npcID -> true once checked for an owner this session, or next retry time
 
+local zoneCache = {} -- mapID -> zone map ID, this session
+
+-- GetBestMapForUnit can return a cave or building sub-map: walk up to the
+-- Zone map. Falls back to the original id when none is found.
+local function zoneOf(id)
+	if zoneCache[id] then return zoneCache[id] end
+	local zone, cur = id, id
+	local zoneType = Enum and Enum.UIMapType and Enum.UIMapType.Zone
+	for _ = 1, 5 do
+		if not (zoneType and C_Map.GetMapInfo) then break end
+		local ok, info = pcall(C_Map.GetMapInfo, cur)
+		info = ok and R(info) or nil
+		if type(info) ~= "table" then break end
+		local mapType, parent = R(info.mapType), R(info.parentMapID)
+		if mapType == zoneType then
+			zone = cur
+			break
+		end
+		if type(parent) ~= "number" or parent == 0 then break end
+		cur = parent
+	end
+	zoneCache[id] = zone
+	return zone
+end
+
 -- The player's position in world yards, or nil if the game hides it
 -- (instances). Uses the player because the add-on cannot read mob positions.
 local function playerPos()
@@ -21,7 +46,7 @@ local function playerPos()
 	if C_Map and C_Map.GetBestMapForUnit then
 		local okZone, id = pcall(C_Map.GetBestMapForUnit, "player")
 		id = okZone and R(id) or nil
-		if type(id) == "number" then zone = id end
+		if type(id) == "number" then zone = zoneOf(id) end
 	end
 	return { c = instance, x = x, y = y, zone = zone }
 end
@@ -51,13 +76,7 @@ local function observe(unit)
 		petChecked[npcID] = (ok and ns.CheckPet(unit, npcID, data)) or now + 10
 	end
 	if est:IsPet(npcID) then return end
-	local known = ns.db.npcs[npcID]
-	if not (known and known.class) then
-		local class = R(UnitClassification(unit))
-		if type(class) == "string" and est:SetClass(npcID, class) then
-			ns.Debug("class", npcID, R(UnitName(unit)) or "?", class)
-		end
-	end
+	ns.CheckClass(unit, npcID)
 	local prev = lastDead[guid]
 	if prev == nil then
 		lastDeadCount = lastDeadCount + 1
@@ -67,6 +86,14 @@ local function observe(unit)
 	if dead then
 		-- Only a death we watched happen has a known time.
 		if prev == false then
+			-- Re-check the tooltip once per death: quest lines may have appeared
+			-- since the first check (a quest taken later).
+			local known = est:Entry(npcID)
+			if not (known and known.quest) and C_TooltipInfo and C_TooltipInfo.GetUnit then
+				local ok, data = pcall(C_TooltipInfo.GetUnit, unit)
+				if ok then ns.CheckPet(unit, npcID, data) end
+				if est:IsPet(npcID) then return end
+			end
 			local pos = playerPos()
 			est:RecordDeath(guid, npcID, now, pos)
 			ns.Debug("death", npcID, R(UnitName(unit)) or "?",
@@ -153,7 +180,7 @@ ns.commands.status = function()
 	local npcID, name = targetNpc()
 	if not npcID then return end
 	local est = ns.estimator:Estimate(npcID, playerPos())
-	local e = ns.db.npcs[npcID]
+	local e = ns.estimator:Entry(npcID)
 	if e and e.pet then return ns.Print(string.format("%s (npc %d): pet, ignored", name, npcID)) end
 	local list = {}
 	for i, s in ipairs(e and e.samples or {}) do list[i] = Util.FormatDuration(s) end

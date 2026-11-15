@@ -32,8 +32,9 @@ function ns.TooltipLine(guid, npcID, dead, now, pos)
 			return died .. ", respawns within at most " .. fmt(left)
 		end
 		if not corpse.remaining then return died .. ", respawn: no data yet" end
-		if corpse.remaining <= 0 then return died .. ", respawn due" end
-		return died .. ", respawn in ~" .. fmt(corpse.remaining)
+		local zone = corpse.estimate.scope == "zone" and " (zone avg)" or ""
+		if corpse.remaining <= 0 then return died .. ", respawn due" .. zone end
+		return died .. ", respawn in ~" .. fmt(corpse.remaining) .. zone
 	end
 	local e = est:Estimate(npcID, pos)
 	return e and ("Respawn " .. estimateText(e)) or "Respawn: no data yet"
@@ -139,6 +140,16 @@ function ns.CheckPet(unit, npcID, data)
 	return false
 end
 
+-- Stores the unit's classification once per npcID (it never changes).
+function ns.CheckClass(unit, npcID)
+	local known = ns.estimator:Entry(npcID)
+	if known and known.class then return end
+	local class = ns.Readable(UnitClassification(unit))
+	if type(class) == "string" and ns.estimator:SetClass(npcID, class) then
+		ns.Debug("class", npcID, ns.Readable(UnitName(unit)) or "?", class)
+	end
+end
+
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)
 	if tooltip ~= GameTooltip or not ns.estimator then return end
 	local _, unit = tooltip:GetUnit()
@@ -146,6 +157,7 @@ TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tool
 	local guid, npcID, dead = ns.Tracker.Read(unit)
 	if not guid then return end
 	ns.CheckPet(unit, npcID, data)
+	ns.CheckClass(unit, npcID)
 	local line = ns.TooltipLine(guid, npcID, dead, GetServerTime(), ns.Tracker.PlayerPos())
 	if line then tooltip:AddLine(line, COLOR[1], COLOR[2], COLOR[3]) end
 end)
