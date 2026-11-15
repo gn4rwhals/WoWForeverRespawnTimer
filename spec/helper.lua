@@ -4,8 +4,8 @@ local helper = {}
 function helper.load(...)
 	local ns = {}
 	for _, name in ipairs({ ... }) do
-		local chunk = assert(loadfile("RespawnTimer/" .. name .. ".lua"))
-		chunk("RespawnTimer", ns)
+		local chunk = assert(loadfile("WoWForeverRespawnTimer/" .. name .. ".lua"))
+		chunk("WoWForeverRespawnTimer", ns)
 	end
 	return ns
 end

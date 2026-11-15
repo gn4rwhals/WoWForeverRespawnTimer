@@ -1,6 +1,6 @@
-# WoWRespawntimer
+# WoWForeverRespawnTimer
 
-[![Tests](https://github.com/gn4rwhals/WoWRespawntimer/actions/workflows/test.yml/badge.svg)](https://github.com/gn4rwhals/WoWRespawntimer/actions/workflows/test.yml)
+[![Tests](https://github.com/gn4rwhals/WoWForeverRespawnTimer/actions/workflows/test.yml/badge.svg)](https://github.com/gn4rwhals/WoWForeverRespawnTimer/actions/workflows/test.yml)
 
 WoW Forever mob respawn timer add-on. Mouse over a creature, dead or alive, to see its respawn time.
 
@@ -14,10 +14,10 @@ Tooltip examples:
 
 ## Install
 
-Copy or link the `RespawnTimer` folder into `World of Warcraft\_forever_\Interface\AddOns\`. For development, a junction keeps the game in sync with the repo:
+Copy or link the `WoWForeverRespawnTimer` folder into `World of Warcraft\_forever_\Interface\AddOns\`. For development, a junction keeps the game in sync with the repo:
 
 ```powershell
-New-Item -ItemType Junction -Path "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\RespawnTimer" -Target "C:\Repos\WoWRespawntimer\RespawnTimer"
+New-Item -ItemType Junction -Path "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\WoWForeverRespawnTimer" -Target "C:\Repos\WoWForeverRespawnTimer\WoWForeverRespawnTimer"
 ```
 
 ## Commands
@@ -40,21 +40,21 @@ New-Item -ItemType Junction -Path "C:\Program Files (x86)\World of Warcraft\_for
 
 ## Reporting bugs and ideas
 
-Found a bug, a wrong respawn time, or have a feature idea? [Open an issue](https://github.com/gn4rwhals/WoWRespawntimer/issues/new). Pull requests are not accepted, so issues are the way to suggest changes.
+Found a bug, a wrong respawn time, or have a feature idea? [Open an issue](https://github.com/gn4rwhals/WoWForeverRespawnTimer/issues/new). Pull requests are not accepted, so issues are the way to suggest changes.
 
 For bugs, please include:
 
-- Add-on version (from the add-on list or `## Version` in `RespawnTimer.toc`)
+- Add-on version (from the add-on list or `## Version` in `WoWForeverRespawnTimer.toc`)
 - What you did, what you expected, and what happened instead
 - Zone and mob name, if it is about a specific creature
 - Any Lua error text (turn on error popups with `/console scriptErrors 1`)
 - Output of `/rst status` while targeting the mob, if relevant
-- Optional: your debug log. Turn it on with `/rst debug`, reproduce the problem, `/reload`, then attach the `log` section from `WTF\Account\<ACCOUNT>\SavedVariables\RespawnTimer.lua`
+- Optional: your debug log. Turn it on with `/rst debug`, reproduce the problem, `/reload`, then attach the `log` section from `WTF\Account\<ACCOUNT>\SavedVariables\WoWForeverRespawnTimer.lua`
 
 ## Development
 
-- `RespawnTimer/Util.lua`, `Estimator.lua`: pure logic, unit tested.
-- `RespawnTimer/Tracker.lua`, `Tooltip.lua`, `Core.lua`: WoW API glue.
+- `WoWForeverRespawnTimer/Util.lua`, `Estimator.lua`: pure logic, unit tested.
+- `WoWForeverRespawnTimer/Tracker.lua`, `Tooltip.lua`, `Core.lua`: WoW API glue.
 - Tests: [busted](https://lunarmodules.github.io/busted/) on Lua 5.1, run from repo root: `busted spec`.
 - Editor: VS Code with the "WoW API" extension (Ketho) for autocomplete.
 

@@ -4,14 +4,14 @@ Checklist for a long test session in WoW Forever. Do Part A once at the start, t
 
 ## A. Logging setup (~5 min)
 
-1. **Load the latest code.** The add-on folder in `_forever_\Interface\AddOns\RespawnTimer` is a junction to this repo, so nothing needs copying. If the game is already open, type `/reload`.
+1. **Load the latest code.** The add-on folder in `_forever_\Interface\AddOns\WoWForeverRespawnTimer` is a junction to this repo, so nothing needs copying. If the game is already open, type `/reload`.
 2. **Turn on Lua error popups** (built into the game): type `/console scriptErrors 1`. Any add-on error now shows a popup. Optional: install BugGrabber + BugSack from CurseForge if they list Forever support.
 3. **Turn on debug logging:** `/rst debug`. Chat says `debug ON (logged to SavedVariables)`. The setting is saved, so it stays on after reloads. Typing `/rst debug` again turns it off.
 4. **Check that logging works:**
    1. `/rst note T0 setup check`
    2. `/rst log`. Chat shows `log: N lines (debug ON)` and the `NOTE T0 setup check` line.
    3. `/reload`
-   4. Open `C:\Program Files (x86)\World of Warcraft\_forever_\WTF\Account\<ACCOUNT>\SavedVariables\RespawnTimer.lua` in Notepad (or ask Claude to check it). The `NOTE T0 setup check` line must be there.
+   4. Open `C:\Program Files (x86)\World of Warcraft\_forever_\WTF\Account\<ACCOUNT>\SavedVariables\WoWForeverRespawnTimer.lua` in Notepad (or ask Claude to check it). The `NOTE T0 setup check` line must be there.
 5. **Start note:** `/rst note session start zone=<zone> level=<your level>`
 6. **Flush rule:** `/reload` every 30-45 minutes and after any test you care about. The game only writes the file on `/reload` or logout, so a crash loses everything since the last one.
 
@@ -151,5 +151,5 @@ Use a mob type you do NOT need data for: `/rst clear` wipes that type's learned 
 - T3: area count and per-camp times against the tooltip notes.
 - T4: any `learned` sample under 45 seconds or during combat.
 - Every `bug` note and error popup, with a proposed fix.
-- Tune `MIN_SAMPLE`, `MATCH_RADIUS` and `AREA_RADIUS` in `RespawnTimer/Estimator.lua` if the data calls for it.
+- Tune `MIN_SAMPLE`, `MATCH_RADIUS` and `AREA_RADIUS` in `WoWForeverRespawnTimer/Estimator.lua` if the data calls for it.
 - Write it up in `docs/testing/results/<date>.md`.

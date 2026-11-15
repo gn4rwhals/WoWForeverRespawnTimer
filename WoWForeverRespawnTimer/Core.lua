@@ -21,7 +21,7 @@ end
 
 -- Debug log: with /rst debug on, lines print to chat and are kept in
 -- RespawnTimerDB.log, which the game writes to
--- WTF\Account\<account>\SavedVariables\RespawnTimer.lua on /reload or logout.
+-- WTF\Account\<account>\SavedVariables\WoWForeverRespawnTimer.lua on /reload or logout.
 -- ns.Log always records; ns.Debug only when debug is on.
 function ns.Log(...)
 	if not ns.db then return end

@@ -12,7 +12,7 @@ body:
     id: version
     attributes:
       label: Add-on version
-      description: Shown in the in-game add-on list, or `## Version` in `RespawnTimer.toc`.
+      description: Shown in the in-game add-on list, or `## Version` in `WoWForeverRespawnTimer.toc`.
       placeholder: "0.1.0"
     validations:
       required: true
@@ -72,7 +72,7 @@ body:
       label: Debug log (optional)
       description: |
         Turn on `/rst debug`, reproduce the problem, then `/reload`.
-        Paste the `log` section from `WTF\Account\<ACCOUNT>\SavedVariables\RespawnTimer.lua`.
+        Paste the `log` section from `WTF\Account\<ACCOUNT>\SavedVariables\WoWForeverRespawnTimer.lua`.
       render: text
     validations:
       required: false
