@@ -42,3 +42,16 @@ function Util.Median(list)
 	if n % 2 == 1 then return sorted[(n + 1) / 2] end
 	return (sorted[n / 2] + sorted[n / 2 + 1]) / 2
 end
+
+-- Median that ignores values below 0.5x the full-list median (a different
+-- mob of the same type, seen early). Lists under 3 use the plain median.
+-- Returns the median and how many values it used.
+function Util.RobustMedian(list)
+	local median = Util.Median(list)
+	if not median or #list < 3 then return median, #list end
+	local kept = {}
+	for _, v in ipairs(list) do
+		if v >= median * 0.5 then kept[#kept + 1] = v end
+	end
+	return Util.Median(kept), #kept
+end

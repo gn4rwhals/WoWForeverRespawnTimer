@@ -54,7 +54,9 @@ local function observe(unit)
 		if est:MarkSeen(guid) then ns.Debug("add", npcID, R(UnitName(unit)) or "?") end
 	else
 		local sample, areaIndex, areaCount = est:RecordAlive(guid, npcID, now, playerPos())
-		if sample then
+		if not sample and areaIndex == "away" then
+			ns.Debug("skipped", npcID, R(UnitName(unit)) or "?", Util.FormatDuration(areaCount), "(away)")
+		elseif sample then
 			ns.Debug("learned", npcID, R(UnitName(unit)) or "?", Util.FormatDuration(sample),
 				string.format("area#%d (%d samples)", areaIndex, areaCount))
 		end
@@ -80,6 +82,7 @@ table.insert(ns.onLoad, function()
 		"NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED" }) do
 		frame:RegisterEvent(e)
 	end
+	C_Timer.NewTicker(5, function() ns.estimator:Tick(GetServerTime(), playerPos()) end)
 end)
 
 -- Slash commands ------------------------------------------------------------

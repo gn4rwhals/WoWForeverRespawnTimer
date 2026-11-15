@@ -160,4 +160,51 @@ describe("Estimator", function()
 		e:RecordDeath("new", 299, 3 * 3600, HERE)
 		assert.is_nil(e:Corpse("old", 3 * 3600))
 	end)
+
+	it("gives no sample when the player was away at any tick", function()
+		local e, store = new()
+		e:RecordDeath("guid-a", 299, 1000, HERE)
+		e:Tick(1100, NEAR)
+		e:Tick(1200, FAR) -- left the area
+		e:Tick(1300, NEAR) -- came back
+		local sample, why, gap = e:RecordAlive("guid-b", 299, 1400, NEAR)
+		assert.is_nil(sample)
+		assert.are.same({ "away", 400 }, { why, gap })
+		assert.is_nil(store[299])
+		assert.is_nil(e:RecordAlive("guid-c", 299, 1410, NEAR)) -- death is used up
+	end)
+
+	it("gives a sample when every tick was in range", function()
+		local e = new()
+		e:RecordDeath("guid-a", 299, 1000, HERE)
+		e:Tick(1100, NEAR)
+		e:Tick(1200, HERE)
+		assert.are.equal(300, e:RecordAlive("guid-b", 299, 1300, NEAR))
+	end)
+
+	it("marks a death away when a tick has no position", function()
+		local e = new()
+		e:RecordDeath("guid-a", 299, 1000, HERE)
+		e:Tick(1100, nil)
+		assert.is_nil(e:RecordAlive("guid-b", 299, 1300, NEAR))
+		assert.is_true(e.deaths["guid-a"].away)
+	end)
+
+	it("marks a death away on another continent or with an unknown death position", function()
+		local e = new()
+		e:RecordDeath("guid-a", 299, 1000, HERE)
+		e:RecordDeath("guid-b", 299, 1000, nil)
+		e:Tick(1100, { c = 1, x = 100, y = 100 })
+		assert.is_true(e.deaths["guid-a"].away)
+		assert.is_true(e.deaths["guid-b"].away)
+	end)
+
+	it("estimates from the median without short outliers", function()
+		local e, store = new()
+		store[299] = { samples = { 68, 260, 287, 66 }, areas = {} }
+		assert.are.same({ seconds = 273.5, n = 2, scope = "type" }, e:Estimate(299))
+		store[299].areas = { { c = 0, x = 100, y = 100, samples = { 68, 260, 287, 66 } } }
+		assert.are.same({ seconds = 273.5, n = 2, scope = "area" }, e:Estimate(299, NEAR))
+		assert.are.same({ 68, 260, 287, 66 }, store[299].samples) -- raw data untouched
+	end)
 end)

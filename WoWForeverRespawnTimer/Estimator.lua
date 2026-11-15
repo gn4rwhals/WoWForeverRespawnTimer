@@ -98,8 +98,21 @@ function Estimator:MarkSeen(guid)
 	return true
 end
 
+-- Called periodically with the player's position. A pending death the player
+-- was away from (or could not be placed) is flagged: the gap would include
+-- time spent elsewhere, so RecordAlive will not learn from it.
+function Estimator:Tick(now, pos)
+	for _, d in pairs(self.deaths) do
+		if not d.matched and not d.away then
+			local dist = pos and d.pos and Util.Distance(d.pos, pos)
+			if not dist or dist > self.MATCH_RADIUS then d.away = true end
+		end
+	end
+end
+
 -- Returns the learned sample in seconds, the spawn area's index and its
--- sample count, or nil if nothing was learned.
+-- sample count, or nil if nothing was learned. If the best match was flagged
+-- away, returns nil, "away", gap (the death is used up, nothing is stored).
 function Estimator:RecordAlive(guid, npcID, t, pos)
 	if self.seen[guid] then return nil end
 	self.seen[guid] = true
@@ -116,6 +129,7 @@ function Estimator:RecordAlive(guid, npcID, t, pos)
 	if not best then return nil end
 	best.matched = true
 	local sample = t - best.t
+	if best.away then return nil, "away", sample end
 	local e = entry(self, npcID)
 	push(e.samples, sample, self.MAX_SAMPLES)
 	local areaIndex, areaCount = addToArea(e, best.pos, sample)
@@ -131,11 +145,12 @@ function Estimator:Estimate(npcID, pos)
 	if e.override then return { seconds = e.override, n = #e.samples, scope = "manual" } end
 	local area = pos and nearestArea(e, pos)
 	if area and #area.samples > 0 then
-		return { seconds = Util.Median(area.samples), n = #area.samples, scope = "area" }
+		local median, n = Util.RobustMedian(area.samples)
+		return { seconds = median, n = n, scope = "area" }
 	end
-	local median = Util.Median(e.samples)
+	local median, n = Util.RobustMedian(e.samples)
 	if not median then return nil end
-	return { seconds = median, n = #e.samples, scope = "type" }
+	return { seconds = median, n = n, scope = "type" }
 end
 
 -- For a corpse we saw die: { diedAgo, remaining } (remaining nil if no
