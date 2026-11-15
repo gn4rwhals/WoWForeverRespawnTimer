@@ -24,6 +24,7 @@ Estimator.MAX_AREAS = 50       -- per npcID, oldest dropped first
 -- store: persisted table (RespawnTimerDB.npcs), npcID -> {
 --   samples = {...},  every sample for this npcID (fallback estimate)
 --   areas = { { c, x, y, samples = {...} }, ... },  spawn spots, by death position
+--   bounds = {...},  upper bounds from mobs first seen in combat
 --   override = seconds,  manual value from /rst set
 -- }
 function Estimator.New(store)
@@ -89,20 +90,9 @@ function Estimator:RecordDeath(guid, npcID, t, pos)
 	end
 end
 
--- Remembers a GUID without learning from it (e.g. a mob already in combat
--- when first seen is an add joining a fight, not a fresh respawn).
--- Returns true the first time a GUID is marked.
-function Estimator:MarkSeen(guid)
-	if self.seen[guid] then return false end
-	self.seen[guid] = true
-	return true
-end
-
--- Returns the learned sample in seconds, the spawn area's index and its
--- sample count, or nil if nothing was learned.
-function Estimator:RecordAlive(guid, npcID, t, pos)
-	if self.seen[guid] then return nil end
-	self.seen[guid] = true
+-- The nearest unmatched death of npcID that a creature seen at t and pos
+-- could have respawned from, or nil.
+local function findDeath(self, npcID, t, pos)
 	local best, bestDist
 	for _, d in pairs(self.deaths) do
 		local gap = t - d.t
@@ -113,6 +103,31 @@ function Estimator:RecordAlive(guid, npcID, t, pos)
 			end
 		end
 	end
+	return best
+end
+
+-- Like RecordAlive, for a mob first seen already in combat. It may have been
+-- pulled long after respawning, so the gap is only an upper bound (e.bounds).
+-- Returns true the first time a GUID is seen (else false), and the bound
+-- in seconds if one was recorded.
+function Estimator:RecordBound(guid, npcID, t, pos)
+	if self.seen[guid] then return false end
+	self.seen[guid] = true
+	local best = findDeath(self, npcID, t, pos)
+	if not best then return true end
+	best.matched = true
+	local e = entry(self, npcID)
+	e.bounds = e.bounds or {}
+	push(e.bounds, t - best.t, self.MAX_SAMPLES)
+	return true, t - best.t
+end
+
+-- Returns the learned sample in seconds, the spawn area's index and its
+-- sample count, or nil if nothing was learned.
+function Estimator:RecordAlive(guid, npcID, t, pos)
+	if self.seen[guid] then return nil end
+	self.seen[guid] = true
+	local best = findDeath(self, npcID, t, pos)
 	if not best then return nil end
 	best.matched = true
 	local sample = t - best.t
@@ -124,7 +139,8 @@ end
 
 -- Returns { seconds, n, scope } or nil when nothing is known. scope is
 -- "manual" (/rst set), "area" (samples from the spawn spot nearest pos) or
--- "type" (all samples for this npcID, when no area near pos has any).
+-- "type" (all samples for this npcID, when no area near pos has any) or
+-- "bound" (no samples: the smallest upper bound from in-combat sightings).
 function Estimator:Estimate(npcID, pos)
 	local e = self.store[npcID]
 	if not e then return nil end
@@ -134,7 +150,13 @@ function Estimator:Estimate(npcID, pos)
 		return { seconds = Util.Median(area.samples), n = #area.samples, scope = "area" }
 	end
 	local median = Util.Median(e.samples)
-	if not median then return nil end
+	if not median then
+		local bounds = e.bounds
+		if bounds and #bounds > 0 then
+			return { seconds = math.min(unpack(bounds)), n = #bounds, scope = "bound" }
+		end
+		return nil
+	end
 	return { seconds = median, n = #e.samples, scope = "type" }
 end
 

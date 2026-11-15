@@ -51,7 +51,9 @@ local function observe(unit)
 				pos and string.format("@%d:%d,%d", pos.c, pos.x, pos.y) or "@unknown")
 		end
 	elseif R(UnitAffectingCombat(unit)) then
-		if est:MarkSeen(guid) then ns.Debug("add", npcID, R(UnitName(unit)) or "?") end
+		local first, bound = est:RecordBound(guid, npcID, now, playerPos())
+		if first then ns.Debug("add", npcID, R(UnitName(unit)) or "?") end
+		if bound then ns.Debug("bound", npcID, R(UnitName(unit)) or "?", "<=", Util.FormatDuration(bound)) end
 	else
 		local sample, areaIndex, areaCount = est:RecordAlive(guid, npcID, now, playerPos())
 		if sample then
