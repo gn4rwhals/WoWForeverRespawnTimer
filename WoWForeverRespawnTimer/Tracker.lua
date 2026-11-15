@@ -7,6 +7,7 @@ local Tracker = {}
 ns.Tracker = Tracker
 
 local lastDead, lastDeadCount = {}, 0 -- guid -> last readable dead state
+local petChecked = {} -- npcID -> true once checked for an owner this session
 
 -- The player's position in world yards, or nil if the game hides it
 -- (instances). Uses the player because the add-on cannot read mob positions.
@@ -36,6 +37,11 @@ local function observe(unit)
 	local guid, npcID, dead = Tracker.Read(unit)
 	if not guid then return end
 	local est, now = ns.estimator, GetServerTime()
+	if not petChecked[npcID] and C_TooltipInfo and C_TooltipInfo.GetUnit then
+		local ok, data = pcall(C_TooltipInfo.GetUnit, unit)
+		if ok and ns.CheckPet(unit, npcID, data) then petChecked[npcID] = true end
+	end
+	if est:IsPet(npcID) then return end
 	local prev = lastDead[guid]
 	if prev == nil then
 		lastDeadCount = lastDeadCount + 1
@@ -108,6 +114,7 @@ ns.commands.set = function(rest)
 	if not seconds or seconds <= 0 then return ns.Print("usage: /rst set <seconds>") end
 	local npcID, name = targetNpc()
 	if not npcID then return end
+	if ns.estimator:IsPet(npcID) then return ns.Print(name .. " is a pet, ignored (/rst clear to undo)") end
 	ns.estimator:SetOverride(npcID, seconds)
 	ns.Print(name .. " respawn set to " .. Util.FormatDuration(seconds))
 end
@@ -116,6 +123,7 @@ ns.commands.clear = function()
 	local npcID, name = targetNpc()
 	if not npcID then return end
 	ns.estimator:Clear(npcID)
+	petChecked[npcID] = nil
 	ns.Print(name .. " respawn data cleared")
 end
 
@@ -124,6 +132,7 @@ ns.commands.status = function()
 	if not npcID then return end
 	local est = ns.estimator:Estimate(npcID, playerPos())
 	local e = ns.db.npcs[npcID]
+	if e and e.pet then return ns.Print(string.format("%s (npc %d): pet, ignored", name, npcID)) end
 	local list = {}
 	for i, s in ipairs(e and e.samples or {}) do list[i] = Util.FormatDuration(s) end
 	ns.Print(string.format("%s (npc %d): estimate %s, %d spawn areas, all samples [%s]", name, npcID,

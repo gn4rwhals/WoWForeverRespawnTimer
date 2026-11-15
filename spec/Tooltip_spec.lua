@@ -47,3 +47,93 @@ describe("TooltipLine", function()
 		assert.are.equal("Respawn ~1m 30s (manual)", ns.TooltipLine("x", 299, true, 0))
 	end)
 end)
+
+local FMT = { "%s's Pet", "%s's Guardian" }
+local QUEST_TITLE = 17 -- stub for Enum.TooltipDataLineType.QuestTitle
+local function opts(extra)
+	local o = { formats = FMT, skipTypes = { QUEST_TITLE } }
+	for k, v in pairs(extra or {}) do o[k] = v end
+	return o
+end
+
+describe("PetOwner", function()
+	it("matches a pet title line and names the method", function()
+		local ns = setup()
+		local lines = { { text = "Skullsplitter Panther", n = 1 }, { text = "Skullsplitter Hunter's Pet", n = 2 } }
+		local owner, how = ns.PetOwner(lines, opts())
+		assert.are.equal("Skullsplitter Hunter", owner)
+		assert.are.equal("text", how)
+	end)
+
+	it("matches any format in the list", function()
+		local ns = setup()
+		assert.are.equal("Bob", ns.PetOwner({ { text = "Bob's Guardian", n = 2 } }, opts()))
+	end)
+
+	it("prefers the UnitOwner line type", function()
+		local ns = setup()
+		local owner, how = ns.PetOwner({ { text = "Bob", type = 16, n = 2 } }, opts({ ownerType = 16 }))
+		assert.are.equal("Bob", owner)
+		assert.are.equal("type", how)
+	end)
+
+	it("returns nil without a match", function()
+		local ns = setup()
+		assert.is_nil(ns.PetOwner({ { text = "Level 30", n = 2 } }, opts()))
+		assert.is_nil(ns.PetOwner({ { text = "x", type = 5, n = 2 } }, opts({ ownerType = 16 })))
+		assert.is_nil(ns.PetOwner({ { text = "Hunter's Pet", n = 2 } }, opts({ formats = {} })))
+	end)
+
+	it("skips the name line and quest lines", function()
+		local ns = setup()
+		assert.is_nil(ns.PetOwner({ { text = "The Captain's Pet", n = 1 } }, opts()))
+		assert.is_nil(ns.PetOwner({ { text = "The Captain's Pet", type = QUEST_TITLE, n = 2 } }, opts()))
+	end)
+
+	it("only matches text on line 2, and the owner type on lines up to 3", function()
+		local ns = setup()
+		local lines = { { text = "Bandit", n = 1 }, { text = "Level 30", n = 2 },
+			{ text = "The Captain's Pet", type = 0, n = 3 } }
+		assert.is_nil(ns.PetOwner(lines, opts()))
+		assert.are.equal("Skullsplitter Hunter", ns.PetOwner({ { text = "Skullsplitter Hunter's Pet", n = 2 } }, opts()))
+		assert.is_nil(ns.PetOwner({ { text = "Bob", type = 16, n = 4 } }, opts({ ownerType = 16 })))
+		assert.are.equal("Bob", ns.PetOwner({ { text = "Bob", type = 16, n = 3 } }, opts({ ownerType = 16 })))
+	end)
+
+	it("ignores formats without %s and unescapes %%", function()
+		local ns = setup()
+		assert.is_nil(ns.PetOwner({ { text = "Pet", n = 2 } }, opts({ formats = { "Pet" } })))
+		assert.are.equal("Bob", ns.PetOwner({ { text = "Bob 100% Pet", n = 2 } }, opts({ formats = { "%s 100%% Pet" } })))
+	end)
+
+	it("escapes Lua magic characters in the format", function()
+		local ns = setup()
+		assert.are.equal("Bob", ns.PetOwner({ { text = "Pet (of Bob)", n = 2 } }, opts({ formats = { "Pet (of %s)" } })))
+	end)
+end)
+
+describe("PetLines", function()
+	it("keeps readable string lines, skipping holes and bad entries", function()
+		local ns = setup()
+		ns.Readable = function(v) return v ~= "secret" and v or nil end
+		ns.IsSecret = function() return false end
+		local data = { lines = { { leftText = "Panther" }, { leftText = "secret" }, 5, { leftText = "Hunter's Pet", type = 3 } } }
+		assert.are.same({ { text = "Panther", n = 1 }, { text = "Hunter's Pet", type = 3, n = 4 } }, ns.PetLines(data))
+	end)
+
+	it("returns an empty list for bad data", function()
+		local ns = setup()
+		ns.Readable, ns.IsSecret = function(v) return v end, function() return false end
+		assert.are.same({}, ns.PetLines(nil))
+		assert.are.same({}, ns.PetLines({ lines = 5 }))
+	end)
+end)
+
+describe("TooltipLine for pets", function()
+	it("shows nothing for a pet, alive or dead", function()
+		local ns = setup()
+		ns.estimator:MarkPet(756)
+		assert.is_nil(ns.TooltipLine("g", 756, false, 0))
+		assert.is_nil(ns.TooltipLine("g", 756, true, 0))
+	end)
+end)
