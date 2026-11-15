@@ -7,7 +7,7 @@ local Tracker = {}
 ns.Tracker = Tracker
 
 local lastDead, lastDeadCount = {}, 0 -- guid -> last readable dead state
-local petChecked = {} -- npcID -> true once checked for an owner this session
+local petChecked = {} -- npcID -> true once checked for an owner this session, or next retry time
 
 -- The player's position in world yards, or nil if the game hides it
 -- (instances). Uses the player because the add-on cannot read mob positions.
@@ -37,9 +37,11 @@ local function observe(unit)
 	local guid, npcID, dead = Tracker.Read(unit)
 	if not guid then return end
 	local est, now = ns.estimator, GetServerTime()
-	if not petChecked[npcID] and C_TooltipInfo and C_TooltipInfo.GetUnit then
+	-- Unreadable tooltips are retried at most every 10s, not on every health event.
+	local checked = petChecked[npcID]
+	if checked ~= true and now >= (checked or 0) and C_TooltipInfo and C_TooltipInfo.GetUnit then
 		local ok, data = pcall(C_TooltipInfo.GetUnit, unit)
-		if ok and ns.CheckPet(unit, npcID, data) then petChecked[npcID] = true end
+		petChecked[npcID] = (ok and ns.CheckPet(unit, npcID, data)) or now + 10
 	end
 	if est:IsPet(npcID) then return end
 	local prev = lastDead[guid]
@@ -57,7 +59,13 @@ local function observe(unit)
 				pos and string.format("@%d:%d,%d", pos.c, pos.x, pos.y) or "@unknown")
 		end
 	elseif R(UnitAffectingCombat(unit)) then
-		if est:MarkSeen(guid) then ns.Debug("add", npcID, R(UnitName(unit)) or "?") end
+		if est:IsSeen(guid) then return end -- skip playerPos() on every health event
+		local bound = est:RecordBound(guid, npcID, now, playerPos())
+		if bound then
+			ns.Debug("bound", npcID, R(UnitName(unit)) or "?", "<=", Util.FormatDuration(bound))
+		else
+			ns.Debug("add", npcID, R(UnitName(unit)) or "?")
+		end
 	else
 		local sample, areaIndex, areaCount = est:RecordAlive(guid, npcID, now, playerPos())
 		if not sample and areaIndex == "away" then
@@ -135,9 +143,11 @@ ns.commands.status = function()
 	if e and e.pet then return ns.Print(string.format("%s (npc %d): pet, ignored", name, npcID)) end
 	local list = {}
 	for i, s in ipairs(e and e.samples or {}) do list[i] = Util.FormatDuration(s) end
-	ns.Print(string.format("%s (npc %d): estimate %s, %d spawn areas, all samples [%s]", name, npcID,
+	local bounds = {}
+	for i, b in ipairs(e and e.bounds or {}) do bounds[i] = Util.FormatDuration(b) end
+	ns.Print(string.format("%s (npc %d): estimate %s, %d spawn areas, all samples [%s], bounds [%s]", name, npcID,
 		est and (Util.FormatDuration(est.seconds) .. " " .. est.scope) or "none",
-		e and e.areas and #e.areas or 0, table.concat(list, ", ")))
+		e and e.areas and #e.areas or 0, table.concat(list, ", "), table.concat(bounds, ", ")))
 end
 
 -- Test notes: always logged, even with debug off. See docs/testing.

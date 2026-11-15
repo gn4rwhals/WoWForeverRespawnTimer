@@ -28,6 +28,7 @@ Estimator.MAX_AREAS = 50       -- per npcID, oldest dropped first
 -- store: persisted table (RespawnTimerDB.npcs), npcID -> {
 --   samples = {...},  every sample for this npcID (fallback estimate)
 --   areas = { { c, x, y, samples = {...} }, ... },  spawn spots, by death position
+--   bounds = {...},  upper bounds from mobs first seen in combat
 --   override = seconds,  manual value from /rst set
 --   pet = true,  an NPC pet: the entry holds nothing else (see MarkPet)
 -- }
@@ -87,20 +88,55 @@ end
 function Estimator:RecordDeath(guid, npcID, t, pos)
 	self.seen[guid] = true
 	if self.deaths[guid] then return end
-	self.deaths[guid] = { npcID = npcID, t = t, pos = pos, matched = false }
+	-- A bounded death whose respawn has now died is spent: its next respawn
+	-- belongs to this new death.
+	for _, d in pairs(self.deaths) do
+		if d.bounded and not d.matched and d.npcID == npcID then
+			local dist = Util.Distance(d.pos, pos)
+			if dist and dist <= self.MATCH_RADIUS then d.matched = true end
+		end
+	end
+	self.deaths[guid] = { npcID = npcID, t = t, pos = pos, matched = false, bounded = false }
 	-- Forget deaths too old to ever produce a sample.
 	for g, d in pairs(self.deaths) do
 		if t - d.t > self.MAX_SAMPLE then self.deaths[g] = nil end
 	end
 end
 
--- Remembers a GUID without learning from it (e.g. a mob already in combat
--- when first seen is an add joining a fight, not a fresh respawn).
--- Returns true the first time a GUID is marked.
-function Estimator:MarkSeen(guid)
-	if self.seen[guid] then return false end
+-- The nearest unmatched death of npcID that a creature seen at t and pos
+-- could have respawned from, or nil.
+local function findDeath(self, npcID, t, pos, skipBounded)
+	local best, bestDist
+	for _, d in pairs(self.deaths) do
+		local gap = t - d.t
+		if not d.matched and not (skipBounded and d.bounded) and d.npcID == npcID and gap >= self.MIN_SAMPLE and gap <= self.MAX_SAMPLE then
+			local dist = Util.Distance(d.pos, pos)
+			if dist and dist <= self.MATCH_RADIUS and (not bestDist or dist < bestDist) then
+				best, bestDist = d, dist
+			end
+		end
+	end
+	return best
+end
+
+function Estimator:IsSeen(guid)
+	return self.seen[guid] == true
+end
+
+-- Like RecordAlive, for a mob first seen already in combat. It may have been
+-- pulled long after respawning, or be a friend of the dead mob, so the gap is
+-- only an upper bound (e.bounds). The death stays open for a real sample.
+-- Returns the bound in seconds if one was recorded.
+function Estimator:RecordBound(guid, npcID, t, pos)
+	if self.seen[guid] then return nil end
 	self.seen[guid] = true
-	return true
+	local best = findDeath(self, npcID, t, pos, true)
+	if not best then return nil end
+	best.bounded = true
+	local e = entry(self, npcID)
+	e.bounds = e.bounds or {}
+	push(e.bounds, t - best.t, self.MAX_SAMPLES)
+	return t - best.t
 end
 
 -- Called every dt seconds with the player's position. Time spent away from
@@ -121,16 +157,7 @@ end
 function Estimator:RecordAlive(guid, npcID, t, pos)
 	if self.seen[guid] then return nil end
 	self.seen[guid] = true
-	local best, bestDist
-	for _, d in pairs(self.deaths) do
-		local gap = t - d.t
-		if not d.matched and d.npcID == npcID and gap >= self.MIN_SAMPLE and gap <= self.MAX_SAMPLE then
-			local dist = Util.Distance(d.pos, pos)
-			if dist and dist <= self.MATCH_RADIUS and (not bestDist or dist < bestDist) then
-				best, bestDist = d, dist
-			end
-		end
-	end
+	local best = findDeath(self, npcID, t, pos)
 	if not best then return nil end
 	best.matched = true
 	local sample = t - best.t
@@ -143,7 +170,8 @@ end
 
 -- Returns { seconds, n, scope } or nil when nothing is known. scope is
 -- "manual" (/rst set), "area" (samples from the spawn spot nearest pos) or
--- "type" (all samples for this npcID, when no area near pos has any).
+-- "type" (all samples for this npcID, when no area near pos has any) or
+-- "bound" (no samples: upper-median bound from in-combat sightings, 2+ needed).
 function Estimator:Estimate(npcID, pos)
 	local e = self.store[npcID]
 	if not e or e.pet then return nil end
@@ -159,18 +187,29 @@ function Estimator:Estimate(npcID, pos)
 	end
 	local median, n = Util.RobustMedian(e.samples, reference)
 	if not median then median, n = Util.Median(e.samples), #e.samples end
-	if not median then return nil end
+	if not median then
+		local bounds = e.bounds
+		-- Deliberate: samples always win. Bounds are weak (a false match only
+		-- makes them too small), so they need two kills and use the median.
+		if bounds and #bounds >= 2 then
+			-- Even count: upper middle, so a false low bound cannot pull it down.
+			local sorted = { unpack(bounds) }
+			table.sort(sorted)
+			return { seconds = sorted[math.floor(#sorted / 2) + 1], n = #bounds, scope = "bound" }
+		end
+		return nil
+	end
 	return { seconds = median, n = n, scope = "type" }
 end
 
 -- For a corpse we saw die: { diedAgo, remaining } (remaining nil if no
--- estimate yet, negative if overdue). nil if we did not see it die.
+-- estimate yet, negative if overdue; always nil for a "bound" estimate). nil if we did not see it die.
 function Estimator:Corpse(guid, now)
 	local d = self.deaths[guid]
 	if not d then return nil end
 	local est = self:Estimate(d.npcID, d.pos)
 	local diedAgo = now - d.t
-	return { diedAgo = diedAgo, remaining = est and (est.seconds - diedAgo), estimate = est }
+	return { diedAgo = diedAgo, remaining = est and est.scope ~= "bound" and (est.seconds - diedAgo) or nil, estimate = est }
 end
 
 function Estimator:SetOverride(npcID, seconds)

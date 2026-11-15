@@ -7,6 +7,7 @@ local COLOR = { 0.6, 0.8, 1 }
 
 local function estimateText(est)
 	if est.scope == "manual" then return "~" .. fmt(est.seconds) .. " (manual)" end
+	if est.scope == "bound" then return "at most " .. fmt(est.seconds) .. " (upper bound, " .. est.n .. " kills)" end
 	local samples = est.n .. (est.n == 1 and " sample" or " samples")
 	if est.scope == "area" then return "~" .. fmt(est.seconds) .. " (" .. samples .. " here)" end
 	return "~" .. fmt(est.seconds) .. " (" .. samples .. ", other spots)"
@@ -24,6 +25,9 @@ function ns.TooltipLine(guid, npcID, dead, now, pos)
 	local corpse = est:Corpse(guid, now)
 	if corpse then
 		local died = "Died " .. fmt(corpse.diedAgo) .. " ago"
+		if corpse.estimate and corpse.estimate.scope == "bound" then
+			return died .. ", respawns within at most " .. fmt(corpse.estimate.seconds)
+		end
 		if not corpse.remaining then return died .. ", respawn: no data yet" end
 		if corpse.remaining <= 0 then return died .. ", respawn due" end
 		return died .. ", respawn in ~" .. fmt(corpse.remaining)
@@ -109,7 +113,12 @@ function ns.CheckPet(unit, npcID, data)
 	if owner and ns.estimator:MarkPet(npcID) then
 		ns.Debug("pet", npcID, ns.Readable(UnitName(unit)) or "?", "(owner " .. owner .. ", via " .. how .. ")")
 	end
-	return #lines > 0
+	-- Done only once the owner line (line 2) was readable, or an owner was found.
+	if owner then return true end
+	for _, l in ipairs(lines) do
+		if l.n == 2 then return true end
+	end
+	return false
 end
 
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)

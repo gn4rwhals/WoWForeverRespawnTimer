@@ -46,6 +46,21 @@ describe("TooltipLine", function()
 		ns.estimator:SetOverride(299, 90)
 		assert.are.equal("Respawn ~1m 30s (manual)", ns.TooltipLine("x", 299, true, 0))
 	end)
+
+	it("words bounds as an upper bound, never a countdown", function()
+		local ns = setup()
+		local est = ns.estimator
+		est:RecordDeath("a", 299, 0, HERE)
+		est:RecordBound("b", 299, 1020, HERE)
+		assert.is_nil(ns.TooltipLine("b", 299, false, 1100, HERE)) -- one bound is not enough
+		est:RecordDeath("c", 299, 2000, HERE)
+		est:RecordBound("d", 299, 3020, HERE)
+		assert.are.equal("Typical respawn at most 17m 00s (upper bound, 2 kills)",
+			ns.TooltipLine("d", 299, false, 3100, HERE))
+		est:RecordDeath("e", 299, 4000, HERE)
+		assert.are.equal("Died 1m 00s ago, respawns within at most 17m 00s", ns.TooltipLine("e", 299, true, 4060))
+		assert.are.equal("Died 30m 00s ago, respawns within at most 17m 00s", ns.TooltipLine("e", 299, true, 5800))
+	end)
 end)
 
 local FMT = { "%s's Pet", "%s's Guardian" }
