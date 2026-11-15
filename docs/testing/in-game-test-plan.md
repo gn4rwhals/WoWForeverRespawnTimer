@@ -24,6 +24,12 @@ With debug on, the add-on logs these automatically:
 23:08:25 add 1562 Bloodsail Mage                     mob was already in combat when first seen (ignored)
 23:12:10 learned 1562 Bloodsail Mage 4m 10s area#2 (3 samples)   respawn sample saved
 23:20:00 NOTE T2 respawned                            your note
+23:21:00 skipped 782 Skullsplitter Scout 22m 54s (away)   you left the area too long, sample dropped
+23:22:00 bound 1059 Ana'thek the Cruel <= 17m 00s     first seen in combat: respawns within at most this
+23:23:00 pet 756 Skullsplitter Panther (owner Skullsplitter Hunter, via type)   flagged as a pet, ignored from now on
+23:24:00 class 782 Skullsplitter Scout normal         mob classification, logged once per mob type
+23:25:00 quest 1059 Ana'thek the Cruel                tooltip showed a quest line, kept out of the zone average
+23:26:00 TICK ERROR <message>                         the 5 second position check failed (report this)
 ```
 
 The log keeps the last 3000 lines.
@@ -82,7 +88,7 @@ Measures how far learned samples are from reality.
 ### T4 - Add filter (10 min)
 1. `/rst note T4 start`
 2. Pull 2-3 mobs at once (run into a group). Kill them all.
-3. Chat should show `add <id> <name>` for the mobs that joined the fight, and no `learned` line during it.
+3. Chat should show `add <id> <name>` (or `bound ...` if one of that type died nearby earlier) for the mobs that joined the fight, and no `learned` line during it.
 4. `/rst note T4 done`
 
 **Pass:** no `learned` sample under 45 seconds anywhere in the log.
@@ -139,6 +145,51 @@ Use a mob type you do NOT need data for: `/rst clear` wipes that type's learned 
 ### T12 - Layer or party change (optional)
 1. If you join a party or the game moves you to another layer mid-test: `/rst note layer`
 2. Keep going. Samples right after a `layer` note get checked for outliers.
+
+### T13 - Time away is not counted (15 min)
+1. At a camp, kill one mob. `/rst note T13 start`
+2. Walk or ride at least 150 yards away and stay away for 2 minutes or more.
+3. Come back and look at the camp (hover or target the respawned mob).
+4. Chat should show `skipped <id> <name> <time> (away)`, not `learned`.
+5. Kill another mob, step only ~30 yards away for 10 seconds, come back and wait for the respawn. That one should be `learned`.
+6. `/rst note T13 done`
+
+**Pass:** the long trip gives `skipped`, the short step still gives `learned`.
+
+### T14 - NPC pets (5 min, Skullsplitter camps in Stranglethorn or any hunter-type mob with a pet)
+1. `/rst note T14 start`
+2. Hover over the pet (for example Skullsplitter Panther). Chat should show `pet <id> <name> (owner <owner>, via type)` or `via text`, once. `/rst note T14 via <type or text>`
+3. The pet's tooltip shows no respawn line, alive or dead.
+4. Target the pet, `/rst status`. It says `pet, ignored`.
+5. Kill the owner and the pet. The log shows `death` for the owner but no `death` or `learned` for the pet.
+6. `/rst note T14 done`
+
+**Pass:** pet flagged once, no data recorded for it afterwards.
+
+### T15 - Upper bounds (10 min)
+1. `/rst note T15 start`. Pick a mob type with no samples yet (`/rst status` shows `all samples []`).
+2. Kill one, leave, come back after its respawn and pull it from range without hovering it first.
+3. Chat shows `bound <id> <name> <= <time>`. Repeat once more on the same type.
+4. Hover a live one: `Typical respawn at most X (upper bound, 2 kills)`. `/rst note T15 tooltip <text>`
+5. Kill one and hover the corpse: `respawns within at most ...`, never a `~` countdown.
+6. `/rst note T15 done`
+
+### T16 - Classification and quest flags (10 min)
+1. `/rst note T16 start`
+2. Hover 3 normal mobs, 1 elite and 1 rare if you can find one. Chat shows one `class <id> <name> <value>` line per type. `/rst note T16 classes <what you saw>`
+3. With a kill quest active, hover a quest mob. Chat shows `quest <id> <name>` once.
+4. Hover a totem (Healing Ward) and a critter if around, and note their class: `/rst note T16 totem <value>`
+5. `/rst note T16 done`
+
+### T17 - Zone average (after a few sessions of normal mobs in one zone)
+1. `/rst note T17 start zone=<zone>`
+2. Target a normal mob type you have never timed in this zone. `/rst status` shows class, zone and the zone pool size.
+3. If the pool has 3+ samples, hover a live one: `Typical respawn ~X (zone avg, N samples)`. `/rst note T17 tooltip <text>`
+4. Hover a rare or a quest mob you have never timed: no zone avg line.
+5. Go into a cave or mine in the same zone and type `/dump C_Map.GetBestMapForUnit("player")`. `/rst note T17 cave map=<number>`. `/rst status` there should show the same zone as outside.
+6. `/rst note T17 done`
+
+**Pass:** zone avg only on normal, non-quest mobs without their own data; same zone id inside caves.
 
 ## C. End of session
 1. `/rst note session end`
