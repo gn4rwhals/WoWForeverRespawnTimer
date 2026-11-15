@@ -61,6 +61,7 @@ local function nearestArea(e, pos)
 	return best
 end
 
+-- Returns the area's index in e.areas and its sample count (for the log).
 local function addToArea(e, pos, sample)
 	local area = nearestArea(e, pos)
 	if area then
@@ -73,6 +74,9 @@ local function addToArea(e, pos, sample)
 		push(e.areas, area, Estimator.MAX_AREAS)
 	end
 	push(area.samples, sample, Estimator.MAX_SAMPLES)
+	for i, a in ipairs(e.areas) do
+		if a == area then return i, #area.samples end
+	end
 end
 
 function Estimator:RecordDeath(guid, npcID, t, pos)
@@ -87,11 +91,15 @@ end
 
 -- Remembers a GUID without learning from it (e.g. a mob already in combat
 -- when first seen is an add joining a fight, not a fresh respawn).
+-- Returns true the first time a GUID is marked.
 function Estimator:MarkSeen(guid)
+	if self.seen[guid] then return false end
 	self.seen[guid] = true
+	return true
 end
 
--- Returns the learned sample in seconds, or nil if none was learned.
+-- Returns the learned sample in seconds, the spawn area's index and its
+-- sample count, or nil if nothing was learned.
 function Estimator:RecordAlive(guid, npcID, t, pos)
 	if self.seen[guid] then return nil end
 	self.seen[guid] = true
@@ -110,8 +118,8 @@ function Estimator:RecordAlive(guid, npcID, t, pos)
 	local sample = t - best.t
 	local e = entry(self, npcID)
 	push(e.samples, sample, self.MAX_SAMPLES)
-	addToArea(e, best.pos, sample)
-	return sample
+	local areaIndex, areaCount = addToArea(e, best.pos, sample)
+	return sample, areaIndex, areaCount
 end
 
 -- Returns { seconds, n, scope } or nil when nothing is known. scope is

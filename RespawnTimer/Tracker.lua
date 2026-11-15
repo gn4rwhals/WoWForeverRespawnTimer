@@ -45,15 +45,18 @@ local function observe(unit)
 	if dead then
 		-- Only a death we watched happen has a known time.
 		if prev == false then
-			est:RecordDeath(guid, npcID, now, playerPos())
-			ns.Debug("death", npcID, R(UnitName(unit)) or "?")
+			local pos = playerPos()
+			est:RecordDeath(guid, npcID, now, pos)
+			ns.Debug("death", npcID, R(UnitName(unit)) or "?",
+				pos and string.format("@%d:%d,%d", pos.c, pos.x, pos.y) or "@unknown")
 		end
 	elseif R(UnitAffectingCombat(unit)) then
-		est:MarkSeen(guid)
+		if est:MarkSeen(guid) then ns.Debug("add", npcID, R(UnitName(unit)) or "?") end
 	else
-		local sample = est:RecordAlive(guid, npcID, now, playerPos())
+		local sample, areaIndex, areaCount = est:RecordAlive(guid, npcID, now, playerPos())
 		if sample then
-			ns.Debug("learned", npcID, R(UnitName(unit)) or "?", Util.FormatDuration(sample))
+			ns.Debug("learned", npcID, R(UnitName(unit)) or "?", Util.FormatDuration(sample),
+				string.format("area#%d (%d samples)", areaIndex, areaCount))
 		end
 	end
 end
@@ -113,6 +116,18 @@ ns.commands.status = function()
 	ns.Print(string.format("%s (npc %d): estimate %s, %d spawn areas, all samples [%s]", name, npcID,
 		est and (Util.FormatDuration(est.seconds) .. " " .. est.scope) or "none",
 		e and e.areas and #e.areas or 0, table.concat(list, ", ")))
+end
+
+-- Test notes: always logged, even with debug off. See docs/testing.
+ns.commands.note = function(rest)
+	if rest == "" then return ns.Print("usage: /rst note <text>") end
+	ns.Log("NOTE " .. rest)
+end
+
+ns.commands.log = function()
+	local log = ns.db.log or {}
+	ns.Print("log: " .. #log .. " lines (debug " .. (ns.db.debug and "ON" or "OFF") .. ")")
+	for i = math.max(1, #log - 4), #log do ns.Print(log[i]) end
 end
 
 ns.commands.debug = function()

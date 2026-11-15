@@ -28,10 +28,14 @@ describe("Estimator", function()
 		e:RecordDeath("b1", 299, 2000, CAMP_B)
 		e:RecordAlive("b2", 299, 2600, CAMP_B) -- 600s at camp B
 		assert.are.equal(2, #store[299].areas)
-		assert.are.same({ seconds = 300, n = 1, scope = "area" }, e:Estimate(299, NEAR))
+		-- RecordAlive reports which area got the sample, for the debug log.
+		e:RecordDeath("a3", 299, 3000, HERE)
+		local sample, areaIndex, areaCount = e:RecordAlive("a4", 299, 3200, NEAR)
+		assert.are.same({ 200, 1, 2 }, { sample, areaIndex, areaCount })
+		assert.are.same({ seconds = 250, n = 2, scope = "area" }, e:Estimate(299, NEAR))
 		assert.are.same({ seconds = 600, n = 1, scope = "area" }, e:Estimate(299, CAMP_B))
 		-- Far from both camps: every sample for the type.
-		assert.are.same({ seconds = 450, n = 2, scope = "type" }, e:Estimate(299, { c = 0, x = 5000, y = 0 }))
+		assert.are.same({ seconds = 300, n = 3, scope = "type" }, e:Estimate(299, { c = 0, x = 5000, y = 0 }))
 	end)
 
 	it("merges nearby deaths into one area and moves its centre", function()
@@ -77,7 +81,8 @@ describe("Estimator", function()
 	it("never learns from a GUID marked seen (an add that joined a fight)", function()
 		local e = new()
 		e:RecordDeath("guid-a", 299, 1000, HERE)
-		e:MarkSeen("add")
+		assert.is_true(e:MarkSeen("add"))
+		assert.is_false(e:MarkSeen("add")) -- second mark: nothing new to log
 		assert.is_nil(e:RecordAlive("add", 299, 1300, NEAR))
 		assert.are.equal(300, e:RecordAlive("respawn", 299, 1300, NEAR))
 	end)

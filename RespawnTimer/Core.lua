@@ -22,14 +22,19 @@ end
 -- Debug log: with /rst debug on, lines print to chat and are kept in
 -- RespawnTimerDB.log, which the game writes to
 -- WTF\Account\<account>\SavedVariables\RespawnTimer.lua on /reload or logout.
-function ns.Debug(...)
-	if not (ns.db and ns.db.debug) then return end
+-- ns.Log always records; ns.Debug only when debug is on.
+function ns.Log(...)
+	if not ns.db then return end
 	ns.Print(...)
 	ns.db.log = ns.db.log or {}
 	local parts = {}
 	for i = 1, select("#", ...) do parts[i] = tostring((select(i, ...))) end
 	table.insert(ns.db.log, date("%H:%M:%S ") .. table.concat(parts, " "))
-	if #ns.db.log > 500 then table.remove(ns.db.log, 1) end
+	if #ns.db.log > 3000 then table.remove(ns.db.log, 1) end
+end
+
+function ns.Debug(...)
+	if ns.db and ns.db.debug then ns.Log(...) end
 end
 
 -- Functions other files want run once saved variables are ready.

@@ -26,6 +26,8 @@ New-Item -ItemType Junction -Path "C:\Program Files (x86)\World of Warcraft\_for
 | `/rst set <seconds>` | Manual respawn time for your target's mob type |
 | `/rst clear` | Delete learned data for your target's mob type |
 | `/rst debug` | Toggle debug log (chat + SavedVariables) |
+| `/rst note <text>` | Add a timestamped note to the log (always logged) |
+| `/rst log` | Show log size and last 5 lines |
 
 ## Limits
 
@@ -40,3 +42,8 @@ New-Item -ItemType Junction -Path "C:\Program Files (x86)\World of Warcraft\_for
 - `RespawnTimer/Tracker.lua`, `Tooltip.lua`, `Core.lua`: WoW API glue.
 - Tests: [busted](https://lunarmodules.github.io/busted/) on Lua 5.1, run from repo root: `busted spec`.
 - Editor: VS Code with the "WoW API" extension (Ketho) for autocomplete.
+
+## Testing
+
+- Unit tests: `busted spec`.
+- In game: [docs/testing/in-game-test-plan.md](docs/testing/in-game-test-plan.md). Session results go in `docs/testing/results/`.
