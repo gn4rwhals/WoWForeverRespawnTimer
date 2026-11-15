@@ -151,10 +151,9 @@ function Estimator:Estimate(npcID, pos)
 	-- Typical value for this npcID; samples far from it are false matches.
 	local reference = #e.samples >= 3 and Util.Median(e.samples) or nil
 	if area and #area.samples > 0 then
-		-- An area with enough samples is judged against itself, since camps
-		-- can differ; a small one borrows the npcID-wide reference.
-		local ref = #area.samples >= 3 and Util.Median(area.samples) or reference
-		local median, n = Util.RobustMedian(area.samples, ref)
+		-- Every area uses the npcID-wide band: per-area respawn differences
+		-- under 0.5x the npcID median are not supported, by design.
+		local median, n = Util.RobustMedian(area.samples, reference)
 		if median then return { seconds = median, n = n, scope = "area" } end
 	end
 	local median, n = Util.RobustMedian(e.samples, reference)

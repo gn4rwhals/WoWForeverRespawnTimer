@@ -199,7 +199,7 @@ describe("Estimator", function()
 	it("ignores samples far from the type median, in area and type estimates", function()
 		local e, store = new()
 		store[299] = { samples = { 68, 260, 287, 66, 290 }, areas = {
-			{ c = 0, x = 100, y = 100, samples = { 68, 287 } } } }
+			{ c = 0, x = 100, y = 100, samples = { 68, 287, 66 } } } }
 		assert.are.same({ seconds = 287, n = 1, scope = "area" }, e:Estimate(299, NEAR))
 		assert.are.same({ seconds = 287, n = 3, scope = "type" }, e:Estimate(299, FAR))
 		store[299] = { samples = { 260, 270, 280, 2963 }, areas = {
@@ -212,13 +212,6 @@ describe("Estimator", function()
 		store[299] = { samples = { 100, 110, 120 }, areas = {
 			{ c = 0, x = 100, y = 100, samples = { 20, 1000 } } } }
 		assert.are.same({ seconds = 110, n = 3, scope = "type" }, e:Estimate(299, NEAR))
-	end)
-
-	it("filters an area with 3+ samples against its own median", function()
-		local e, store = new()
-		store[299] = { samples = { 600, 600, 600, 120, 130, 310 }, areas = {
-			{ c = 0, x = 100, y = 100, samples = { 120, 130, 310 } } } }
-		assert.are.same({ seconds = 130, n = 3, scope = "area" }, e:Estimate(299, NEAR))
 	end)
 
 	it("scales the away budget with the gap", function()
