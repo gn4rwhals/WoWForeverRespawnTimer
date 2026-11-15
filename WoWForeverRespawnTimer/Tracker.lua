@@ -51,9 +51,13 @@ local function observe(unit)
 				pos and string.format("@%d:%d,%d", pos.c, pos.x, pos.y) or "@unknown")
 		end
 	elseif R(UnitAffectingCombat(unit)) then
-		local first, bound = est:RecordBound(guid, npcID, now, playerPos())
-		if first then ns.Debug("add", npcID, R(UnitName(unit)) or "?") end
-		if bound then ns.Debug("bound", npcID, R(UnitName(unit)) or "?", "<=", Util.FormatDuration(bound)) end
+		if est:IsSeen(guid) then return end -- skip playerPos() on every health event
+		local bound = est:RecordBound(guid, npcID, now, playerPos())
+		if bound then
+			ns.Debug("bound", npcID, R(UnitName(unit)) or "?", "<=", Util.FormatDuration(bound))
+		else
+			ns.Debug("add", npcID, R(UnitName(unit)) or "?")
+		end
 	else
 		local sample, areaIndex, areaCount = est:RecordAlive(guid, npcID, now, playerPos())
 		if sample then
@@ -115,9 +119,11 @@ ns.commands.status = function()
 	local e = ns.db.npcs[npcID]
 	local list = {}
 	for i, s in ipairs(e and e.samples or {}) do list[i] = Util.FormatDuration(s) end
-	ns.Print(string.format("%s (npc %d): estimate %s, %d spawn areas, all samples [%s]", name, npcID,
+	local bounds = {}
+	for i, b in ipairs(e and e.bounds or {}) do bounds[i] = Util.FormatDuration(b) end
+	ns.Print(string.format("%s (npc %d): estimate %s, %d spawn areas, all samples [%s], bounds [%s]", name, npcID,
 		est and (Util.FormatDuration(est.seconds) .. " " .. est.scope) or "none",
-		e and e.areas and #e.areas or 0, table.concat(list, ", ")))
+		e and e.areas and #e.areas or 0, table.concat(list, ", "), table.concat(bounds, ", ")))
 end
 
 -- Test notes: always logged, even with debug off. See docs/testing.
