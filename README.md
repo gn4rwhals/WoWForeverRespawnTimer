@@ -1,5 +1,7 @@
 # WoWRespawntimer
 
+[![Tests](https://github.com/gn4rwhals/WoWRespawntimer/actions/workflows/test.yml/badge.svg)](https://github.com/gn4rwhals/WoWRespawntimer/actions/workflows/test.yml)
+
 WoW Forever mob respawn timer add-on. Mouse over a creature, dead or alive, to see its respawn time.
 
 The game has no respawn API, so the add-on learns: it records deaths you witness (target, mouseover, nameplates) and the gap until a new mob of the same kind appears nearby. Estimates are kept per spawn area (by where you stood at the kill), falling back to all samples for that mob type. Every number is an estimate and runs slightly high, since it measures until you noticed the respawn.
