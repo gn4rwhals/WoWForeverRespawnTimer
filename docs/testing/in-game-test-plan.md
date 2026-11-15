@@ -191,7 +191,7 @@ Use a mob type you do NOT need data for: `/rst clear` wipes that type's learned 
 
 **Pass:** zone avg only on normal, non-quest mobs without their own data; same zone id inside caves.
 
-### T18 - Paused in dungeons (one dungeon run)
+### T18 - Paused in dungeons, cities and inns (one dungeon run + city visit)
 1. Type `/console scriptErrors 1` so any error shows as a popup.
 2. `/rst note T18 start dungeon=<name>`
 3. Enter the dungeon. Target, mouse over and kill mobs as normal.
@@ -199,7 +199,10 @@ Use a mob type you do NOT need data for: `/rst clear` wipes that type's learned 
 5. Leave the dungeon. Hover an outdoor mob with data: its respawn line is back.
 6. `/rst note T18 done`
 
-**Pass:** no errors and no tracking inside the dungeon; tracking resumes outside.
+7. Walk into a major city (Orgrimmar, Stormwind, ...). Hover guards and city NPCs: no respawn line, no `class` lines. Same inside an inn.
+8. `/rst note T18 city done`
+
+**Pass:** no errors and no tracking inside the dungeon or in cities and inns; tracking resumes outside.
 
 ## C. End of session
 1. `/rst note session end`
