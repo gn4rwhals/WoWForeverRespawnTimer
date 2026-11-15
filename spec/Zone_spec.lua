@@ -61,9 +61,9 @@ describe("Estimator zone pool", function()
 	it("caps the pool and drops the oldest", function()
 		local e, _, zones = new()
 		e:SetClass(1, "normal")
-		for i = 1, 101 do kill(e, 1, 100 + i) end
+		for i = 1, 101 do kill(e, 1, 200 + i) end
 		assert.are.equal(100, #zones[1434].samples)
-		assert.are.equal(102, zones[1434].samples[1])
+		assert.are.equal(202, zones[1434].samples[1])
 	end)
 
 	it("works without a zones table", function()

@@ -107,6 +107,15 @@ describe("Estimator", function()
 		assert.are.equal(200, e:RecordAlive("guid-c", 299, 1300, NEAR))
 	end)
 
+	it("ignores the false 47-89 s matches seen at Brinescale Skirmishers", function()
+		for _, gap in ipairs({ 47, 50, 53, 57, 60, 89 }) do
+			local e, store = new()
+			e:RecordDeath("d", 299, 1000, HERE)
+			assert.is_nil(e:RecordAlive("a", 299, 1000 + gap, NEAR))
+			assert.is_nil(store[299])
+		end
+	end)
+
 	it("needs positions to match", function()
 		local e = new()
 		e:RecordDeath("guid-a", 299, 1000, nil)
@@ -118,11 +127,11 @@ describe("Estimator", function()
 		for i = 1, 25 do
 			local t = i * 10000
 			e:RecordDeath("dead-" .. i, 299, t, HERE)
-			e:RecordAlive("alive-" .. i, 299, t + 100 + i, NEAR)
+			e:RecordAlive("alive-" .. i, 299, t + 200 + i, NEAR)
 		end
 		assert.are.equal(20, #store[299].samples)
-		assert.are.equal(106, store[299].samples[1]) -- samples 1-5 dropped
-		assert.are.equal(115.5, e:Estimate(299).seconds)
+		assert.are.equal(206, store[299].samples[1]) -- samples 1-5 dropped
+		assert.are.equal(215.5, e:Estimate(299).seconds)
 	end)
 
 	it("reports time since death and time remaining for a corpse", function()
@@ -217,17 +226,17 @@ describe("Estimator", function()
 	it("scales the away budget with the gap", function()
 		local e = new()
 		e:RecordDeath("a", 299, 1000, HERE)
-		e:Tick(FAR, 25)
-		assert.is_nil(e:RecordAlive("b", 299, 1096, NEAR)) -- 25s > 0.2 * 96
+		e:Tick(FAR, 26)
+		assert.is_nil(e:RecordAlive("b", 299, 1125, NEAR)) -- 26s > 0.2 * 125
 		e:RecordDeath("c", 299, 2000, HERE)
 		e:Tick(FAR, 25)
 		assert.are.equal(300, e:RecordAlive("d", 299, 2300, NEAR)) -- 25s <= 60
 		e:RecordDeath("f", 299, 3000, HERE)
-		e:Tick(FAR, 20)
-		assert.are.equal(100, e:RecordAlive("g", 299, 3100, NEAR)) -- exactly 0.2 * 100
+		e:Tick(FAR, 30)
+		assert.are.equal(150, e:RecordAlive("g", 299, 3150, NEAR)) -- exactly 0.2 * 150
 		e:RecordDeath("h", 299, 4000, HERE)
-		e:Tick(FAR, 21)
-		assert.is_nil(e:RecordAlive("i", 299, 4100, NEAR))
+		e:Tick(FAR, 31)
+		assert.is_nil(e:RecordAlive("i", 299, 4150, NEAR))
 	end)
 
 	describe("RecordBound", function()
@@ -293,10 +302,10 @@ describe("Estimator", function()
 			local e, store = new()
 			for i = 1, e.MAX_SAMPLES + 1 do
 				e:RecordDeath("d" .. i, 299, i * 1000, HERE)
-				e:RecordBound("b" .. i, 299, i * 1000 + 100 + i, HERE)
+				e:RecordBound("b" .. i, 299, i * 1000 + 200 + i, HERE)
 			end
 			assert.are.equal(e.MAX_SAMPLES, #store[299].bounds)
-			assert.are.equal(102, store[299].bounds[1])
+			assert.are.equal(202, store[299].bounds[1])
 		end)
 
 		it("needs two bounds before estimating, and uses their median", function()
@@ -314,7 +323,7 @@ describe("Estimator", function()
 
 		it("is not driven by a single false low bound", function()
 			local e = new()
-			twoBounds(e, 50, 3000)
+			twoBounds(e, 130, 3000)
 			assert.are.equal(3000, e:Estimate(299, HERE).seconds)
 		end)
 
