@@ -9,6 +9,7 @@ local function estimateText(est)
 	if est.scope == "manual" then return "~" .. fmt(est.seconds) .. " (manual)" end
 	if est.scope == "bound" then return "at most " .. fmt(est.seconds) .. " (upper bound, " .. est.n .. " kills)" end
 	local samples = est.n .. (est.n == 1 and " sample" or " samples")
+	if est.scope == "zone" then return "~" .. fmt(est.seconds) .. " (zone avg, " .. samples .. ")" end
 	if est.scope == "area" then return "~" .. fmt(est.seconds) .. " (" .. samples .. " here)" end
 	return "~" .. fmt(est.seconds) .. " (" .. samples .. ", other spots)"
 end
@@ -31,8 +32,9 @@ function ns.TooltipLine(guid, npcID, dead, now, pos)
 			return died .. ", respawns within at most " .. fmt(left)
 		end
 		if not corpse.remaining then return died .. ", respawn: no data yet" end
-		if corpse.remaining <= 0 then return died .. ", respawn due" end
-		return died .. ", respawn in ~" .. fmt(corpse.remaining)
+		local zone = corpse.estimate.scope == "zone" and " (zone avg)" or ""
+		if corpse.remaining <= 0 then return died .. ", respawn due" .. zone end
+		return died .. ", respawn in ~" .. fmt(corpse.remaining) .. zone
 	end
 	local e = est:Estimate(npcID, pos)
 	return e and ("Respawn " .. estimateText(e)) or "Respawn: no data yet"
@@ -99,6 +101,17 @@ local PET_GLOBALS = { "UNITNAME_TITLE_PET", "UNITNAME_TITLE_GUARDIAN", "UNITNAME
 	"UNITNAME_TITLE_CREATION", "UNITNAME_TITLE_COMPANION", "UNITNAME_TITLE_CHARM" }
 local QUEST_TYPES = { "QuestTitle", "QuestObjective", "QuestPlayer" }
 
+-- True when any line has a quest line type (T = Enum.TooltipDataLineType).
+function ns.HasQuestLine(lines, T)
+	for _, name in ipairs(QUEST_TYPES) do
+		local want = T and T[name]
+		for _, l in ipairs(want ~= nil and lines or {}) do
+			if l.type == want then return true end
+		end
+	end
+	return false
+end
+
 -- Marks npcID as a pet when its tooltip data says it has an owner. Returns
 -- true if at least one line was readable (so the check was meaningful).
 function ns.CheckPet(unit, npcID, data)
@@ -115,12 +128,26 @@ function ns.CheckPet(unit, npcID, data)
 	if owner and ns.estimator:MarkPet(npcID) then
 		ns.Debug("pet", npcID, ns.Readable(UnitName(unit)) or "?", "(owner " .. owner .. ", via " .. how .. ")")
 	end
+	-- After the pet check: MarkQuest ignores pets.
+	if ns.HasQuestLine(lines, T) and ns.estimator:MarkQuest(npcID) then
+		ns.Debug("quest", npcID, ns.Readable(UnitName(unit)) or "?")
+	end
 	-- Done only once the owner line (line 2) was readable, or an owner was found.
 	if owner then return true end
 	for _, l in ipairs(lines) do
 		if l.n == 2 then return true end
 	end
 	return false
+end
+
+-- Stores the unit's classification once per npcID (it never changes).
+function ns.CheckClass(unit, npcID)
+	local known = ns.estimator:Entry(npcID)
+	if known and known.class then return end
+	local class = ns.Readable(UnitClassification(unit))
+	if type(class) == "string" and ns.estimator:SetClass(npcID, class) then
+		ns.Debug("class", npcID, ns.Readable(UnitName(unit)) or "?", class)
+	end
 end
 
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)
@@ -130,6 +157,7 @@ TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tool
 	local guid, npcID, dead = ns.Tracker.Read(unit)
 	if not guid then return end
 	ns.CheckPet(unit, npcID, data)
+	ns.CheckClass(unit, npcID)
 	local line = ns.TooltipLine(guid, npcID, dead, GetServerTime(), ns.Tracker.PlayerPos())
 	if line then tooltip:AddLine(line, COLOR[1], COLOR[2], COLOR[3]) end
 end)

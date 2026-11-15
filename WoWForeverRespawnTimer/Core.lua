@@ -64,6 +64,7 @@ frame:SetScript("OnEvent", function(self, event, name)
 	-- SavedVariables are only loaded once our ADDON_LOADED fires.
 	RespawnTimerDB = RespawnTimerDB or { version = 1, npcs = {} }
 	ns.db = RespawnTimerDB
+	ns.db.zones = ns.db.zones or {}
 	ns.db.probeLog = nil -- left over from the step 1 probe
 	for _, fn in ipairs(ns.onLoad) do fn() end
 	self:UnregisterEvent("ADDON_LOADED")

@@ -24,6 +24,8 @@ Estimator.MAX_AWAY = 60
 Estimator.MAX_SAMPLES = 20     -- kept per npcID and per area, oldest dropped first
 Estimator.AREA_RADIUS = 50     -- yards; a death this close to an area joins it
 Estimator.MAX_AREAS = 50       -- per npcID, oldest dropped first
+Estimator.MAX_ZONE_SAMPLES = Estimator.MAX_SAMPLES * 5 -- per zone, oldest dropped first
+Estimator.MIN_ZONE_SAMPLES = 3
 
 -- store: persisted table (RespawnTimerDB.npcs), npcID -> {
 --   samples = {...},  every sample for this npcID (fallback estimate)
@@ -31,10 +33,15 @@ Estimator.MAX_AREAS = 50       -- per npcID, oldest dropped first
 --   bounds = {...},  upper bounds from mobs first seen in combat
 --   override = seconds,  manual value from /rst set
 --   pet = true,  an NPC pet: the entry holds nothing else (see MarkPet)
+--   class = "normal" | "rare" | ...,  UnitClassification, set once (SetClass)
+--   quest = true,  seen with quest tooltip lines, sticky (MarkQuest)
 -- }
-function Estimator.New(store)
+-- zones: persisted table (RespawnTimerDB.zones), mapID -> { samples = {...} },
+-- the samples of normal non-quest mobs. Fallback for mobs with no data.
+function Estimator.New(store, zones)
 	return setmetatable({
 		store = store,
+		zones = zones or {},
 		deaths = {}, -- guid -> { npcID, t, pos, matched }, this session only
 		seen = {},   -- guid -> true for every creature GUID seen alive or dead
 	}, Estimator)
@@ -175,16 +182,34 @@ function Estimator:RecordAlive(guid, npcID, t, pos)
 	local e = entry(self, npcID)
 	push(e.samples, sample, self.MAX_SAMPLES)
 	local areaIndex, areaCount = addToArea(e, best.pos, sample)
+	-- Class and quest flags can arrive after earlier samples: no backfill, and
+	-- a mob flagged quest later keeps its earlier zone samples.
+	local zone = best.pos and best.pos.zone
+	if zone and e.class == "normal" and not e.quest then
+		self.zones[zone] = self.zones[zone] or { samples = {} }
+		push(self.zones[zone].samples, sample, self.MAX_ZONE_SAMPLES)
+	end
 	return sample, areaIndex, areaCount
+end
+
+-- The zone average for a mob with no data of its own, or nil. Only offered
+-- for an npcID known to be normal and not quest-flagged.
+local function zoneEstimate(self, e, pos)
+	local zone = pos and pos.zone and self.zones[pos.zone]
+	if not zone or #zone.samples < self.MIN_ZONE_SAMPLES then return nil end
+	if e.class ~= "normal" or e.quest then return nil end
+	local median, n = Util.RobustMedian(zone.samples, Util.Median(zone.samples))
+	return median and { seconds = median, n = n, scope = "zone" } or nil
 end
 
 -- Returns { seconds, n, scope } or nil when nothing is known. scope is
 -- "manual" (/rst set), "area" (samples from the spawn spot nearest pos) or
 -- "type" (all samples for this npcID, when no area near pos has any) or
--- "bound" (no samples: upper-median bound from in-combat sightings, 2+ needed).
+-- "bound" (no samples: upper-median bound from in-combat sightings, 2+ needed)
+-- or "zone" (nothing of its own: average of normal mobs in pos.zone).
 function Estimator:Estimate(npcID, pos)
-	local e = self.store[npcID]
-	if not e or e.pet then return nil end
+	local e = self.store[npcID] or { samples = {} }
+	if e.pet then return nil end
 	if e.override then return { seconds = e.override, n = #e.samples, scope = "manual" } end
 	local area = pos and nearestArea(e, pos)
 	-- Typical value for this npcID; samples far from it are false matches.
@@ -207,7 +232,7 @@ function Estimator:Estimate(npcID, pos)
 			table.sort(sorted)
 			return { seconds = sorted[math.floor(#sorted / 2) + 1], n = #bounds, scope = "bound" }
 		end
-		return nil
+		return zoneEstimate(self, e, pos)
 	end
 	return { seconds = median, n = n, scope = "type" }
 end
@@ -244,8 +269,47 @@ function Estimator:IsPet(npcID)
 	return e ~= nil and e.pet == true
 end
 
--- Clearing a pet also remembers it is not one, so it is not flagged again.
+-- The stored entry for npcID, or nil. Read only.
+function Estimator:Entry(npcID)
+	return self.store[npcID]
+end
+
+-- The entry for a flag, created without areas (entry() adds them when needed).
+local function flagEntry(self, npcID)
+	local e = self.store[npcID]
+	if not e then
+		e = { samples = {} }
+		self.store[npcID] = e
+	end
+	return e
+end
+
+-- Stores the creature class once. Returns true when newly set; pets get no entry.
+function Estimator:SetClass(npcID, class)
+	if self:IsPet(npcID) then return false end
+	local e = flagEntry(self, npcID)
+	if e.class then return false end
+	e.class = class
+	return true
+end
+
+-- Flags npcID as a quest mob for good. Returns true the first time.
+function Estimator:MarkQuest(npcID)
+	if self:IsPet(npcID) then return false end
+	local e = flagEntry(self, npcID)
+	if e.quest then return false end
+	e.quest = true
+	return true
+end
+
+-- Clear drops samples, areas, bounds and the override. It keeps the class and
+-- quest flag, and remembers a cleared pet is not one, so it is not flagged again.
 function Estimator:Clear(npcID)
 	local e = self.store[npcID]
-	self.store[npcID] = (e and (e.pet or e.notPet)) and { samples = {}, notPet = true } or nil
+	local notPet = e and (e.pet or e.notPet) or nil
+	if e and (notPet or e.class or e.quest) then
+		self.store[npcID] = { samples = {}, notPet = notPet, class = e.class, quest = e.quest }
+	else
+		self.store[npcID] = nil
+	end
 end
