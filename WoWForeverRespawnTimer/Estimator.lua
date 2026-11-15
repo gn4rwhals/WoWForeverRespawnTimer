@@ -18,7 +18,7 @@ Estimator.MAX_SAMPLE = 2 * 3600 -- seconds; longer gaps are noise, deaths expire
 -- Player, not mob, positions: nameplates show mobs ~40 yd away, so allow slack.
 Estimator.MATCH_RADIUS = 60
 -- A death is dropped as a sample if the player spent over MAX_AWAY seconds
--- farther than AWAY_RADIUS yards from it (time away inflates the gap).
+-- (or 20% of the gap, if less) farther than AWAY_RADIUS yards from it.
 Estimator.AWAY_RADIUS = 100
 Estimator.MAX_AWAY = 60
 Estimator.MAX_SAMPLES = 20     -- kept per npcID and per area, oldest dropped first
@@ -133,7 +133,7 @@ function Estimator:RecordAlive(guid, npcID, t, pos)
 	if not best then return nil end
 	best.matched = true
 	local sample = t - best.t
-	if (best.awaySecs or 0) > self.MAX_AWAY then return nil, "away", sample end
+	if (best.awaySecs or 0) > math.min(self.MAX_AWAY, 0.2 * sample) then return nil, "away", sample end
 	local e = entry(self, npcID)
 	push(e.samples, sample, self.MAX_SAMPLES)
 	local areaIndex, areaCount = addToArea(e, best.pos, sample)
@@ -151,10 +151,14 @@ function Estimator:Estimate(npcID, pos)
 	-- Typical value for this npcID; samples far from it are false matches.
 	local reference = #e.samples >= 3 and Util.Median(e.samples) or nil
 	if area and #area.samples > 0 then
-		local median, n = Util.RobustMedian(area.samples, reference)
-		return { seconds = median, n = n, scope = "area" }
+		-- An area with enough samples is judged against itself, since camps
+		-- can differ; a small one borrows the npcID-wide reference.
+		local ref = #area.samples >= 3 and Util.Median(area.samples) or reference
+		local median, n = Util.RobustMedian(area.samples, ref)
+		if median then return { seconds = median, n = n, scope = "area" } end
 	end
 	local median, n = Util.RobustMedian(e.samples, reference)
+	if not median then median, n = Util.Median(e.samples), #e.samples end
 	if not median then return nil end
 	return { seconds = median, n = n, scope = "type" }
 end

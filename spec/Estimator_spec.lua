@@ -199,7 +199,7 @@ describe("Estimator", function()
 	it("ignores samples far from the type median, in area and type estimates", function()
 		local e, store = new()
 		store[299] = { samples = { 68, 260, 287, 66, 290 }, areas = {
-			{ c = 0, x = 100, y = 100, samples = { 68, 287, 66 } } } }
+			{ c = 0, x = 100, y = 100, samples = { 68, 287 } } } }
 		assert.are.same({ seconds = 287, n = 1, scope = "area" }, e:Estimate(299, NEAR))
 		assert.are.same({ seconds = 287, n = 3, scope = "type" }, e:Estimate(299, FAR))
 		store[299] = { samples = { 260, 270, 280, 2963 }, areas = {
@@ -207,10 +207,33 @@ describe("Estimator", function()
 		assert.are.same({ seconds = 260, n = 1, scope = "area" }, e:Estimate(299, NEAR))
 	end)
 
-	it("falls back to the unfiltered median when filtering leaves nothing", function()
+	it("uses the type estimate when filtering leaves an area nothing", function()
 		local e, store = new()
 		store[299] = { samples = { 100, 110, 120 }, areas = {
 			{ c = 0, x = 100, y = 100, samples = { 20, 1000 } } } }
-		assert.are.same({ seconds = 510, n = 2, scope = "area" }, e:Estimate(299, NEAR))
+		assert.are.same({ seconds = 110, n = 3, scope = "type" }, e:Estimate(299, NEAR))
+	end)
+
+	it("filters an area with 3+ samples against its own median", function()
+		local e, store = new()
+		store[299] = { samples = { 600, 600, 600, 120, 130, 310 }, areas = {
+			{ c = 0, x = 100, y = 100, samples = { 120, 130, 310 } } } }
+		assert.are.same({ seconds = 130, n = 3, scope = "area" }, e:Estimate(299, NEAR))
+	end)
+
+	it("scales the away budget with the gap", function()
+		local e = new()
+		e:RecordDeath("a", 299, 1000, HERE)
+		e:Tick(FAR, 25)
+		assert.is_nil(e:RecordAlive("b", 299, 1096, NEAR)) -- 25s > 0.2 * 96
+		e:RecordDeath("c", 299, 2000, HERE)
+		e:Tick(FAR, 25)
+		assert.are.equal(300, e:RecordAlive("d", 299, 2300, NEAR)) -- 25s <= 60
+		e:RecordDeath("f", 299, 3000, HERE)
+		e:Tick(FAR, 20)
+		assert.are.equal(100, e:RecordAlive("g", 299, 3100, NEAR)) -- exactly 0.2 * 100
+		e:RecordDeath("h", 299, 4000, HERE)
+		e:Tick(FAR, 21)
+		assert.is_nil(e:RecordAlive("i", 299, 4100, NEAR))
 	end)
 end)

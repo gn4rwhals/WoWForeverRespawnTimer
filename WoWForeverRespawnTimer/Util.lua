@@ -44,14 +44,13 @@ function Util.Median(list)
 end
 
 -- Median of the values within 0.5x to 3x of reference (false short matches
--- and inflated gaps fall outside). No reference, or nothing left, uses the
--- plain median. Returns the median and how many values it used.
+-- and inflated gaps fall outside). No reference uses the plain median.
+-- Returns the median and how many values it used (nil, 0 if none are left).
 function Util.RobustMedian(list, reference)
 	if not reference then return Util.Median(list), #list end
 	local kept = {}
 	for _, v in ipairs(list) do
 		if v >= reference * 0.5 and v <= reference * 3 then kept[#kept + 1] = v end
 	end
-	if #kept == 0 then return Util.Median(list), #list end
 	return Util.Median(kept), #kept
 end
