@@ -127,7 +127,7 @@ end
 -- "type" (all samples for this npcID, when no area near pos has any).
 function Estimator:Estimate(npcID, pos)
 	local e = self.store[npcID]
-	if not e then return nil end
+	if not e or e.pet then return nil end
 	if e.override then return { seconds = e.override, n = #e.samples, scope = "manual" } end
 	local area = pos and nearestArea(e, pos)
 	if area and #area.samples > 0 then
@@ -150,6 +150,22 @@ end
 
 function Estimator:SetOverride(npcID, seconds)
 	entry(self, npcID).override = seconds
+end
+
+-- A pet (e.g. a hunter mob's panther) is not a spawn: drop what we learned
+-- and pending deaths. Returns true the first time. /rst clear undoes it.
+function Estimator:MarkPet(npcID)
+	if self:IsPet(npcID) then return false end
+	self.store[npcID] = { pet = true }
+	for g, d in pairs(self.deaths) do
+		if d.npcID == npcID then self.deaths[g] = nil end
+	end
+	return true
+end
+
+function Estimator:IsPet(npcID)
+	local e = self.store[npcID]
+	return e ~= nil and e.pet == true
 end
 
 function Estimator:Clear(npcID)

@@ -31,12 +31,38 @@ function ns.TooltipLine(guid, npcID, dead, now, pos)
 	return e and ("Respawn " .. estimateText(e)) or "Respawn: no data yet"
 end
 
-TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
+-- Returns the owner's name if any line matches the pet title format
+-- (UNITNAME_TITLE_PET, e.g. "%s's Pet"), else nil. Non-string lines are skipped.
+function ns.PetOwner(lines, format)
+	if type(format) ~= "string" then return nil end
+	local pattern = "^" .. format:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0"):gsub("%%%%s", "(.+)") .. "$"
+	for _, text in ipairs(lines) do
+		if type(text) == "string" then
+			local owner = text:match(pattern)
+			if owner then return owner end
+		end
+	end
+	return nil
+end
+
+local function tooltipTexts(data)
+	local texts = {}
+	for i, line in ipairs(data and data.lines or {}) do
+		texts[i] = ns.Readable(line.leftText)
+	end
+	return texts
+end
+
+TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, data)
 	if tooltip ~= GameTooltip or not ns.estimator then return end
 	local _, unit = tooltip:GetUnit()
 	if not unit then return end
 	local guid, npcID, dead = ns.Tracker.Read(unit)
 	if not guid then return end
+	local owner = ns.PetOwner(tooltipTexts(data), UNITNAME_TITLE_PET)
+	if owner and ns.estimator:MarkPet(npcID) then
+		ns.Debug("pet", npcID, ns.Readable(UnitName(unit)) or "?", "(owner " .. owner .. ")")
+	end
 	local line = ns.TooltipLine(guid, npcID, dead, GetServerTime(), ns.Tracker.PlayerPos())
 	if line then tooltip:AddLine(line, COLOR[1], COLOR[2], COLOR[3]) end
 end)

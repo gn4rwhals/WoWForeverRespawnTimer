@@ -36,6 +36,7 @@ local function observe(unit)
 	local guid, npcID, dead = Tracker.Read(unit)
 	if not guid then return end
 	local est, now = ns.estimator, GetServerTime()
+	if est:IsPet(npcID) then return end
 	local prev = lastDead[guid]
 	if prev == nil then
 		lastDeadCount = lastDeadCount + 1
@@ -111,6 +112,7 @@ ns.commands.status = function()
 	if not npcID then return end
 	local est = ns.estimator:Estimate(npcID, playerPos())
 	local e = ns.db.npcs[npcID]
+	if e and e.pet then return ns.Print(string.format("%s (npc %d): pet, ignored", name, npcID)) end
 	local list = {}
 	for i, s in ipairs(e and e.samples or {}) do list[i] = Util.FormatDuration(s) end
 	ns.Print(string.format("%s (npc %d): estimate %s, %d spawn areas, all samples [%s]", name, npcID,

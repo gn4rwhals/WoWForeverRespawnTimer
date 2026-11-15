@@ -47,3 +47,23 @@ describe("TooltipLine", function()
 		assert.are.equal("Respawn ~1m 30s (manual)", ns.TooltipLine("x", 299, true, 0))
 	end)
 end)
+
+describe("PetOwner", function()
+	it("returns the owner for a pet title line", function()
+		local ns = setup()
+		assert.are.equal("Skullsplitter Hunter",
+			ns.PetOwner({ "Skullsplitter Panther", "Skullsplitter Hunter's Pet", "Level 30" }, "%s's Pet"))
+	end)
+
+	it("returns nil without a match, without a format, or for non-string lines", function()
+		local ns = setup()
+		assert.is_nil(ns.PetOwner({ "Skullsplitter Panther", "Level 30" }, "%s's Pet"))
+		assert.is_nil(ns.PetOwner({ "Hunter's Pet" }, nil))
+		assert.is_nil(ns.PetOwner({ false, 5 }, "%s's Pet"))
+	end)
+
+	it("escapes Lua magic characters in the format", function()
+		local ns = setup()
+		assert.are.equal("Bob", ns.PetOwner({ "Pet (of Bob)" }, "Pet (of %s)"))
+	end)
+end)
