@@ -399,6 +399,8 @@ describe("Estimator pets", function()
 		assert.is_false(e:IsPet(756))
 		assert.is_false(e:MarkPet(756)) -- cleared pets are not flagged again
 		assert.is_false(e:IsPet(756))
+		e:Clear(756) -- a second clear keeps that
+		assert.is_false(e:MarkPet(756))
 	end)
 
 	it("records nothing for a pet even if called directly", function()

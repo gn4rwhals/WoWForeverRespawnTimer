@@ -246,5 +246,6 @@ end
 
 -- Clearing a pet also remembers it is not one, so it is not flagged again.
 function Estimator:Clear(npcID)
-	self.store[npcID] = self:IsPet(npcID) and { samples = {}, notPet = true } or nil
+	local e = self.store[npcID]
+	self.store[npcID] = (e and (e.pet or e.notPet)) and { samples = {}, notPet = true } or nil
 end
