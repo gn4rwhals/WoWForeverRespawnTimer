@@ -39,3 +39,19 @@ luac.out
 *.x86_64
 *.hex
 
+# Test coverage (luacov)
+luacov.*
+
+# Add-on packager output (BigWigsMods/packager)
+.release/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS files
+Thumbs.db
+desktop.ini
+.DS_Store
+

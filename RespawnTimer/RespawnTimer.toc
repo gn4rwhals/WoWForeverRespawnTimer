@@ -1,0 +1,12 @@
+## Interface: 16001
+## Title: RespawnTimer
+## Notes: Shows learned creature respawn times on mouseover.
+## Author: gn4rwhals
+## Version: 0.1.0
+## SavedVariables: RespawnTimerDB
+
+Core.lua
+Util.lua
+Estimator.lua
+Tracker.lua
+Tooltip.lua
