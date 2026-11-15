@@ -1,0 +1,78 @@
+name: Bug report
+description: Something is broken, errors, or shows a wrong respawn time
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! The more detail, the faster it gets fixed.
+        Tip: turn on error popups in game with `/console scriptErrors 1`.
+
+  - type: input
+    id: version
+    attributes:
+      label: Add-on version
+      description: Shown in the in-game add-on list, or `## Version` in `RespawnTimer.toc`.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        I killed a Bloodsail Mage and hovered over the corpse.
+        Expected a countdown, but the tooltip said "no data yet".
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Kill ...
+        3. Hover over ...
+    validations:
+      required: false
+
+  - type: input
+    id: location
+    attributes:
+      label: Zone and mob
+      description: If it is about a specific creature.
+      placeholder: "Stranglethorn Vale, Bloodsail Mage"
+    validations:
+      required: false
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Lua error text
+      description: Paste the full error popup text, if there was one.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: status
+    attributes:
+      label: "/rst status output"
+      description: Target the mob, type `/rst status`, and copy what it says.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Debug log (optional)
+      description: |
+        Turn on `/rst debug`, reproduce the problem, then `/reload`.
+        Paste the `log` section from `WTF\Account\<ACCOUNT>\SavedVariables\RespawnTimer.lua`.
+      render: text
+    validations:
+      required: false
