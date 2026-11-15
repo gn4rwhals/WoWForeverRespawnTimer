@@ -9,6 +9,7 @@ local function estimateText(est)
 	if est.scope == "manual" then return "~" .. fmt(est.seconds) .. " (manual)" end
 	if est.scope == "bound" then return "at most " .. fmt(est.seconds) .. " (upper bound, " .. est.n .. " kills)" end
 	local samples = est.n .. (est.n == 1 and " sample" or " samples")
+	if est.scope == "zone" then return "~" .. fmt(est.seconds) .. " (zone avg, " .. samples .. ")" end
 	if est.scope == "area" then return "~" .. fmt(est.seconds) .. " (" .. samples .. " here)" end
 	return "~" .. fmt(est.seconds) .. " (" .. samples .. ", other spots)"
 end
@@ -99,6 +100,17 @@ local PET_GLOBALS = { "UNITNAME_TITLE_PET", "UNITNAME_TITLE_GUARDIAN", "UNITNAME
 	"UNITNAME_TITLE_CREATION", "UNITNAME_TITLE_COMPANION", "UNITNAME_TITLE_CHARM" }
 local QUEST_TYPES = { "QuestTitle", "QuestObjective", "QuestPlayer" }
 
+-- True when any line has a quest line type (T = Enum.TooltipDataLineType).
+function ns.HasQuestLine(lines, T)
+	for _, name in ipairs(QUEST_TYPES) do
+		local want = T and T[name]
+		for _, l in ipairs(want ~= nil and lines or {}) do
+			if l.type == want then return true end
+		end
+	end
+	return false
+end
+
 -- Marks npcID as a pet when its tooltip data says it has an owner. Returns
 -- true if at least one line was readable (so the check was meaningful).
 function ns.CheckPet(unit, npcID, data)
@@ -114,6 +126,10 @@ function ns.CheckPet(unit, npcID, data)
 	local owner, how = ns.PetOwner(lines, opts)
 	if owner and ns.estimator:MarkPet(npcID) then
 		ns.Debug("pet", npcID, ns.Readable(UnitName(unit)) or "?", "(owner " .. owner .. ", via " .. how .. ")")
+	end
+	-- After the pet check: MarkQuest ignores pets.
+	if ns.HasQuestLine(lines, T) and ns.estimator:MarkQuest(npcID) then
+		ns.Debug("quest", npcID, ns.Readable(UnitName(unit)) or "?")
 	end
 	-- Done only once the owner line (line 2) was readable, or an owner was found.
 	if owner then return true end

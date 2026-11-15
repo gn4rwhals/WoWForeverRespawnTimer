@@ -16,7 +16,14 @@ local function playerPos()
 	if not ok then return nil end
 	x, y, instance = R(x), R(y), R(instance)
 	if type(x) ~= "number" or type(y) ~= "number" or instance == nil then return nil end
-	return { c = instance, x = x, y = y }
+	-- Zone = map ID (e.g. 1434 Stranglethorn); nil when unavailable.
+	local zone
+	if C_Map and C_Map.GetBestMapForUnit then
+		local okZone, id = pcall(C_Map.GetBestMapForUnit, "player")
+		id = okZone and R(id) or nil
+		if type(id) == "number" then zone = id end
+	end
+	return { c = instance, x = x, y = y, zone = zone }
 end
 Tracker.PlayerPos = playerPos
 
@@ -44,6 +51,13 @@ local function observe(unit)
 		petChecked[npcID] = (ok and ns.CheckPet(unit, npcID, data)) or now + 10
 	end
 	if est:IsPet(npcID) then return end
+	local known = ns.db.npcs[npcID]
+	if not (known and known.class) then
+		local class = R(UnitClassification(unit))
+		if type(class) == "string" and est:SetClass(npcID, class) then
+			ns.Debug("class", npcID, R(UnitName(unit)) or "?", class)
+		end
+	end
 	local prev = lastDead[guid]
 	if prev == nil then
 		lastDeadCount = lastDeadCount + 1
@@ -91,7 +105,7 @@ frame:SetScript("OnEvent", function(_, event, unit)
 end)
 
 table.insert(ns.onLoad, function()
-	ns.estimator = ns.Estimator.New(ns.db.npcs)
+	ns.estimator = ns.Estimator.New(ns.db.npcs, ns.db.zones)
 	for _, e in ipairs({ "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT", "UNIT_HEALTH",
 		"NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED" }) do
 		frame:RegisterEvent(e)
@@ -145,9 +159,13 @@ ns.commands.status = function()
 	for i, s in ipairs(e and e.samples or {}) do list[i] = Util.FormatDuration(s) end
 	local bounds = {}
 	for i, b in ipairs(e and e.bounds or {}) do bounds[i] = Util.FormatDuration(b) end
+	local pos = playerPos()
+	local pool = pos and pos.zone and ns.db.zones[pos.zone]
 	ns.Print(string.format("%s (npc %d): estimate %s, %d spawn areas, all samples [%s], bounds [%s]", name, npcID,
 		est and (Util.FormatDuration(est.seconds) .. " " .. est.scope) or "none",
 		e and e.areas and #e.areas or 0, table.concat(list, ", "), table.concat(bounds, ", ")))
+	ns.Print(string.format("class %s, quest %s, zone %s pool %d samples", e and e.class or "?",
+		e and e.quest and "yes" or "no", pos and pos.zone or "?", pool and #pool.samples or 0))
 end
 
 -- Test notes: always logged, even with debug off. See docs/testing.
