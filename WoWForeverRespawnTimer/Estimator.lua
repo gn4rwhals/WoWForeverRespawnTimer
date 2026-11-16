@@ -18,9 +18,11 @@ Estimator.MAX_SAMPLE = 2 * 3600 -- seconds; longer gaps are noise, deaths expire
 -- Player, not mob, positions: nameplates show mobs ~40 yd away, so allow slack.
 Estimator.MATCH_RADIUS = 60
 -- A death is dropped as a sample if the player spent over MAX_AWAY seconds
--- (or 20% of the gap, if less) farther than AWAY_RADIUS yards from it.
-Estimator.AWAY_RADIUS = 100
-Estimator.MAX_AWAY = 60
+-- (or half the gap, if less) farther than AWAY_RADIUS yards from it. Loose
+-- enough for roaming a big camp (Wastewander camps span ~500 yd), tight
+-- enough to catch flying to town.
+Estimator.AWAY_RADIUS = 200
+Estimator.MAX_AWAY = 120
 Estimator.MAX_SAMPLES = 20     -- kept per npcID and per area, oldest dropped first
 Estimator.AREA_RADIUS = 50     -- yards; a death this close to an area joins it
 Estimator.MAX_AREAS = 50       -- per npcID, oldest dropped first
@@ -129,7 +131,7 @@ end
 
 -- True when the player was away from death d for too much of a gap.
 local function tooAway(self, d, gap)
-	return (d.awaySecs or 0) > math.min(self.MAX_AWAY, 0.2 * gap)
+	return (d.awaySecs or 0) > math.min(self.MAX_AWAY, 0.5 * gap)
 end
 
 function Estimator:IsSeen(guid)
@@ -157,19 +159,22 @@ end
 
 -- Called every dt seconds with the player's position. Time spent away from
 -- (or unable to be placed relative to) a pending death is added up, so
--- RecordAlive can skip gaps inflated by the player leaving.
+-- RecordAlive can skip gaps inflated by the player leaving. d.farthest keeps
+-- the largest known distance, for the skip log.
 function Estimator:Tick(pos, dt)
 	for _, d in pairs(self.deaths) do
 		if not d.matched then
 			local dist = pos and d.pos and Util.Distance(d.pos, pos)
 			if not dist or dist > self.AWAY_RADIUS then d.awaySecs = (d.awaySecs or 0) + dt end
+			if dist and dist > (d.farthest or 0) then d.farthest = dist end
 		end
 	end
 end
 
 -- Returns the learned sample in seconds, the spawn area's index and its
 -- sample count, or nil if nothing was learned. If the best match had the
--- player away too long, returns nil, "away", gap (the death is used up, nothing is stored).
+-- player away too long, returns nil, "away", gap, away seconds, farthest
+-- yards or nil (the death is used up, nothing is stored).
 function Estimator:RecordAlive(guid, npcID, t, pos)
 	if self.seen[guid] then return nil end
 	self.seen[guid] = true
@@ -178,7 +183,7 @@ function Estimator:RecordAlive(guid, npcID, t, pos)
 	if not best then return nil end
 	best.matched = true
 	local sample = t - best.t
-	if tooAway(self, best, sample) then return nil, "away", sample end
+	if tooAway(self, best, sample) then return nil, "away", sample, best.awaySecs, best.farthest end
 	local e = entry(self, npcID)
 	push(e.samples, sample, self.MAX_SAMPLES)
 	local areaIndex, areaCount = addToArea(e, best.pos, sample)
