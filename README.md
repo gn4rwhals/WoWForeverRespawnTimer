@@ -14,7 +14,9 @@ Tooltip examples:
 
 ## Install
 
-Copy or link the `WoWForeverRespawnTimer` folder into `World of Warcraft\_forever_\Interface\AddOns\`. For development, a junction keeps the game in sync with the repo:
+Download `WoWForeverRespawnTimer-<version>.zip` from [Releases](https://github.com/gn4rwhals/WoWForeverRespawnTimer/releases) and unpack it into `World of Warcraft\_forever_\Interface\AddOns\`. Do not use the "Source code" zip: it holds the whole repo, not the add-on folder.
+
+From the repo instead: copy or link the `WoWForeverRespawnTimer` folder into `World of Warcraft\_forever_\Interface\AddOns\`. For development, a junction keeps the game in sync with the repo:
 
 ```powershell
 New-Item -ItemType Junction -Path "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\WoWForeverRespawnTimer" -Target "C:\Repos\WoWForeverRespawnTimer\WoWForeverRespawnTimer"
@@ -56,6 +58,7 @@ For bugs, please include:
 - `WoWForeverRespawnTimer/Util.lua`, `Estimator.lua`: pure logic, unit tested.
 - `WoWForeverRespawnTimer/Tracker.lua`, `Tooltip.lua`, `Core.lua`: WoW API glue.
 - Tests: [busted](https://lunarmodules.github.io/busted/) on Lua 5.1, run from repo root: `busted spec`.
+- Release: bump `## Version:` in the `.toc` on main, then push a matching tag (`git tag v0.2.0 && git push origin v0.2.0`). The Release workflow runs the tests, checks the tag against the TOC and publishes the zip.
 - Editor: VS Code with the "WoW API" extension (Ketho) for autocomplete.
 
 ## Testing
