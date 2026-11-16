@@ -2,7 +2,7 @@ local helper = require("spec.helper")
 
 local HERE = { c = 0, x = 100, y = 100 }
 local NEAR = { c = 0, x = 110, y = 100 } -- 10 yards away
-local FAR = { c = 0, x = 300, y = 100 }  -- 200 yards away
+local FAR = { c = 0, x = 400, y = 100 }  -- 300 yards away
 
 local function new()
 	local ns = helper.load("Util", "Estimator")
@@ -173,10 +173,10 @@ describe("Estimator", function()
 	it("gives no sample when the player was away for over MAX_AWAY seconds", function()
 		local e, store = new()
 		e:RecordDeath("guid-a", 299, 1000, HERE)
-		for _ = 1, 13 do e:Tick(FAR, 5) end -- 65s out of range
-		local sample, why, gap = e:RecordAlive("guid-b", 299, 1400, NEAR)
+		for _ = 1, 25 do e:Tick(FAR, 5) end -- 125s out of range
+		local sample, why, gap, awaySecs, farthest = e:RecordAlive("guid-b", 299, 1400, NEAR)
 		assert.is_nil(sample)
-		assert.are.same({ "away", 400 }, { why, gap })
+		assert.are.same({ "away", 400, 125, 300 }, { why, gap, awaySecs, farthest })
 		assert.is_nil(store[299])
 		assert.is_nil(e:RecordAlive("guid-c", 299, 1410, NEAR)) -- death is used up
 	end)
@@ -190,10 +190,10 @@ describe("Estimator", function()
 		assert.are.equal(300, e:RecordAlive("guid-b", 299, 1300, NEAR))
 	end)
 
-	it("learns when the player stayed 80 yards away, inside AWAY_RADIUS", function()
+	it("learns when the player roamed 180 yards away, inside AWAY_RADIUS", function()
 		local e = new()
 		e:RecordDeath("guid-a", 299, 1000, HERE)
-		for _ = 1, 60 do e:Tick({ c = 0, x = 180, y = 100 }, 5) end
+		for _ = 1, 60 do e:Tick({ c = 0, x = 280, y = 100 }, 5) end
 		assert.are.equal(300, e:RecordAlive("guid-b", 299, 1300, HERE))
 	end)
 
@@ -203,6 +203,7 @@ describe("Estimator", function()
 		e:Tick(nil, 5)
 		e:Tick({ c = 1, x = 100, y = 100 }, 5)
 		assert.are.equal(10, e.deaths["guid-a"].awaySecs)
+		assert.is_nil(e.deaths["guid-a"].farthest) -- no known distance
 	end)
 
 	it("ignores samples far from the type median, in area and type estimates", function()
@@ -226,16 +227,16 @@ describe("Estimator", function()
 	it("scales the away budget with the gap", function()
 		local e = new()
 		e:RecordDeath("a", 299, 1000, HERE)
-		e:Tick(FAR, 26)
-		assert.is_nil(e:RecordAlive("b", 299, 1125, NEAR)) -- 26s > 0.2 * 125
+		e:Tick(FAR, 63)
+		assert.is_nil(e:RecordAlive("b", 299, 1125, NEAR)) -- 63s > 0.5 * 125
 		e:RecordDeath("c", 299, 2000, HERE)
-		e:Tick(FAR, 25)
-		assert.are.equal(300, e:RecordAlive("d", 299, 2300, NEAR)) -- 25s <= 60
+		e:Tick(FAR, 120)
+		assert.are.equal(300, e:RecordAlive("d", 299, 2300, NEAR)) -- 120s <= MAX_AWAY
 		e:RecordDeath("f", 299, 3000, HERE)
-		e:Tick(FAR, 30)
-		assert.are.equal(150, e:RecordAlive("g", 299, 3150, NEAR)) -- exactly 0.2 * 150
+		e:Tick(FAR, 75)
+		assert.are.equal(150, e:RecordAlive("g", 299, 3150, NEAR)) -- exactly 0.5 * 150
 		e:RecordDeath("h", 299, 4000, HERE)
-		e:Tick(FAR, 31)
+		e:Tick(FAR, 76)
 		assert.is_nil(e:RecordAlive("i", 299, 4150, NEAR))
 	end)
 

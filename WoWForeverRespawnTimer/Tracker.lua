@@ -109,9 +109,10 @@ local function observe(unit)
 			ns.Debug("add", npcID, R(UnitName(unit)) or "?")
 		end
 	else
-		local sample, areaIndex, areaCount = est:RecordAlive(guid, npcID, now, playerPos())
+		local sample, areaIndex, areaCount, awaySecs, farthest = est:RecordAlive(guid, npcID, now, playerPos())
 		if not sample and areaIndex == "away" then
-			ns.Debug("skipped", npcID, R(UnitName(unit)) or "?", Util.FormatDuration(areaCount), "(away)")
+			ns.Debug("skipped", npcID, R(UnitName(unit)) or "?", Util.FormatDuration(areaCount),
+				string.format("(away %ds, farthest %s yd)", awaySecs, farthest and string.format("%d", farthest) or "?"))
 		elseif sample then
 			ns.Debug("learned", npcID, R(UnitName(unit)) or "?", Util.FormatDuration(sample),
 				string.format("area#%d (%d samples)", areaIndex, areaCount))

@@ -24,7 +24,7 @@ With debug on, the add-on logs these automatically:
 23:08:25 add 1562 Bloodsail Mage                     mob was already in combat when first seen (ignored)
 23:12:10 learned 1562 Bloodsail Mage 4m 10s area#2 (3 samples)   respawn sample saved
 23:20:00 NOTE T2 respawned                            your note
-23:21:00 skipped 782 Skullsplitter Scout 22m 54s (away)   you left the area too long, sample dropped
+23:21:00 skipped 782 Skullsplitter Scout 22m 54s (away 900s, farthest 850 yd)   you left the area too long, sample dropped
 23:22:00 bound 1059 Ana'thek the Cruel <= 17m 00s     first seen in combat: respawns within at most this
 23:23:00 pet 756 Skullsplitter Panther (owner Skullsplitter Hunter, via type)   flagged as a pet, ignored from now on
 23:24:00 class 782 Skullsplitter Scout normal         mob classification, logged once per mob type
@@ -148,13 +148,13 @@ Use a mob type you do NOT need data for: `/rst clear` wipes that type's learned 
 
 ### T13 - Time away is not counted (15 min)
 1. At a camp, kill one mob. `/rst note T13 start`
-2. Walk or ride at least 150 yards away and stay away for 2 minutes or more.
+2. Ride at least 250 yards away and stay away for 3 minutes or more.
 3. Come back and look at the camp (hover or target the respawned mob).
-4. Chat should show `skipped <id> <name> <time> (away)`, not `learned`.
-5. Kill another mob, step only ~30 yards away for 10 seconds, come back and wait for the respawn. That one should be `learned`.
+4. Chat should show `skipped <id> <name> <time> (away <s>s, farthest <yd> yd)`, not `learned`.
+5. Kill another mob, keep fighting within ~150 yards of it (roaming the camp is fine), and wait for the respawn. That one should be `learned`.
 6. `/rst note T13 done`
 
-**Pass:** the long trip gives `skipped`, the short step still gives `learned`.
+**Pass:** the long trip gives `skipped`, roaming the camp still gives `learned`.
 
 ### T14 - NPC pets (5 min, Skullsplitter camps in Stranglethorn or any hunter-type mob with a pet)
 1. `/rst note T14 start`
