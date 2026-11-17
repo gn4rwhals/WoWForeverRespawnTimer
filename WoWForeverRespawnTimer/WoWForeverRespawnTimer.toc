@@ -2,7 +2,7 @@
 ## Title: WoW Forever Respawn Timer
 ## Notes: Shows learned creature respawn times on mouseover.
 ## Author: gn4rwhals
-## Version: 0.1.0
+## Version: 0.1.1
 ## SavedVariables: RespawnTimerDB
 
 Core.lua
